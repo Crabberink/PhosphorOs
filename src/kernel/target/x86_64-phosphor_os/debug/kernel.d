@@ -1,0 +1,1 @@
+/workspaces/PhosphorOs/src/kernel/target/x86_64-phosphor_os/debug/kernel: /workspaces/PhosphorOs/src/kernel/src/main.rs /workspaces/PhosphorOs/src/kernel/src/serial.rs /workspaces/PhosphorOs/src/kernel/src/writer.rs
