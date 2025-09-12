@@ -15,19 +15,20 @@ use crate::writer::*;
 fn panic(_info: &PanicInfo) -> ! {
     let mut writer = SERIALWRITER.lock();
     writer.set_color(WriterColor::BrightRed);
-    if let Some(location) = _info.location() {
-        if let Some(message) = _info.message().as_str() {
-            let _ = write!(writer, "\nPanicked at {}:{}:{}\n\t'{}'", location.file(), location.line(), location.column(), message);
-        } else {
-            let _ = write!(writer, "\nPanicked at {}:{}:{}", location.file(), location.line(), location.column());
-        }
-    } else {
-        if let Some(message) = _info.location() {
-            let _ = write!(writer, "\nThread Panicked:\n\t'{}'", message);
-        } else {
-            let _ = write!(writer, "\nThread Panicked! No location or message available!");
-        }
-    }
+    // if let Some(location) = _info.location() {
+    //     if let Some(message) = _info.message().as_str() {
+    //         let _ = write!(writer, "\nPanicked at {}:{}:{}\n\t'{}'", location.file(), location.line(), location.column(), message);
+    //     } else {
+    //         let _ = write!(writer, "\nPanicked at {}:{}:{}", location.file(), location.line(), location.column());
+    //     }
+    // } else {
+    //     if let Some(message) = _info.location() {
+    //         let _ = write!(writer, "\nThread Panicked:\n\t'{}'", message);
+    //     } else {
+    //         let _ = write!(writer, "\nThread Panicked! No location or message available!");
+    //     }
+    // }
+    let _ = write!(writer, "\n{}", _info);
     loop { }
 }
 
