@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+// Written before x86_64 was added
+
 // Internal Serial Clock 115200hz / divisor
 // DLAB 0: 0 - R/W Data
 // DLAB 0: 1 - Enable Interrupt Reg
@@ -28,8 +30,8 @@ impl SerialPort {
             out_b(self.address + 1, 0x00);  // Disable Interrupts
             out_b(self.address + 3, 0x80);  // Set DLAB to 1
 
-            out_b(self.address + 0, 0x03);  // Divisor = 3
-            out_b(self.address + 1, 0x00);  // 38400 Baud
+            out_b(self.address + 0, self.divisor.to_le_bytes()[0]);  // Divisor = 3
+            out_b(self.address + 1, self.divisor.to_le_bytes()[1]);  // 38400 Baud
 
             let lcr = 
                 (0 << 7) + // DLAB
