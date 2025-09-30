@@ -6,15 +6,18 @@ use core::fmt::Write;
 use core::panic::PanicInfo;
 use lazy_static::lazy_static;
 use spin::Mutex;
+use x86_64::instructions::interrupts::without_interrupts;
 mod serial;
 mod writer;
 mod interrupts;
 mod gdt;
+mod phosphor_os;
 mod console;
 
 use crate::console::Console;
 use crate::gdt::setup_gdt;
 use crate::interrupts::setup_idt;
+use crate::interrupts::PICS;
 use crate::serial::*;
 use crate::writer::*;
 
@@ -36,35 +39,23 @@ lazy_static! {
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
 
-    phosphoros_init();
-
-    phosphoros_main();
+    phosphor_os::init();
     
-    halt()
+    phosphor_os::main();
+
+    halt_loop()
 }
 
-fn phosphoros_init() {
-    setup_idt();
-    setup_gdt();
-}
-
-fn phosphoros_main() {
-    // let vga_buf = 0xb8000 as *mut u8;
-    {
-        let mut console = CONSOLE.lock();
-        console.set_color(WriterColor::Yellow);
-        console.print_str("\nPhosphor");
-        console.set_color(WriterColor::White);
-        console.print_str("OS");
+fn halt_loop() -> ! {
+    // Wait for interrupts indefinitely
+    loop { 
+        x86_64::instructions::hlt();
     }
-
-    breakpoint!();
-
-    cause_a_fucking_stack_overflow(3);
 }
 
-fn halt() -> ! {
-    loop { }
+// Runs at every timer interrupt interval
+pub fn timer_loop() {
+    
 }
 
 #[macro_export]
@@ -72,8 +63,4 @@ macro_rules! breakpoint {
     () => {
         x86_64::instructions::interrupts::int3();
     };
-}
-
-fn cause_a_fucking_stack_overflow(useless_param: u8) {
-    cause_a_fucking_stack_overflow(useless_param);
 }
