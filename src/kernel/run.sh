@@ -1,1 +1,0 @@
-qemu-system-x86_64 -drive format=raw,file=target/x86_64-phosphor_os/debug/bootimage-kernel.bin -nographic
