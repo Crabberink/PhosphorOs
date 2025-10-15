@@ -1,9 +1,28 @@
 use bootloader_api::BootInfo;
 use x86_64::instructions::interrupts::without_interrupts;
 
-use crate::{breakpoint, gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::WriterColor, CONSOLE};
+use crate::{breakpoint, gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE};
 
-pub fn init() {
+pub fn init(boot_info: &'static mut BootInfo) {
+    without_interrupts(|| {
+        // I honestly have no clue what the fuck is going on here but the borrow checker stopped screaming
+        let framebuffer_option = boot_info.framebuffer.take();
+
+        if framebuffer_option.is_none() {
+            return;
+        }
+
+        let framebuffer = framebuffer_option.unwrap();
+
+        let info = framebuffer.info();
+        let buffer = framebuffer.into_buffer();
+
+        let mut console = CONSOLE.lock();
+
+        let framebuffer_writer = FrameBufferWriter::new(buffer, info);
+
+        console.set_framebuffer_writer(framebuffer_writer);
+    });
     setup_gdt();
     setup_idt();
     
@@ -14,8 +33,8 @@ pub fn init() {
     x86_64::instructions::interrupts::enable();
 }
 
-pub fn main(_boot_info: &'static mut BootInfo) -> ! {
-    init();
+pub fn main(boot_info: &'static mut BootInfo) -> ! {
+    init(boot_info);
 
     without_interrupts(|| {
         let mut console = CONSOLE.lock();

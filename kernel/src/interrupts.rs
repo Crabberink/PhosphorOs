@@ -3,7 +3,6 @@ use core::fmt::Write;
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
-use x86_64::instructions::interrupts::without_interrupts;
 
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
 use crate::writer::WriterColor;

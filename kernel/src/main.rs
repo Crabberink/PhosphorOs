@@ -8,7 +8,6 @@ use bootloader_api::entry_point;
 use lazy_static::lazy_static;
 use spin::Mutex;
 mod serial;
-mod vga_buffer;
 mod writer;
 mod interrupts;
 mod gdt;
@@ -21,6 +20,11 @@ use crate::writer::*;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
+    let mut serial_writer = SerialWriter::new(SerialPort::new(0x3F8));
+    // Backup message in case the CONSOLE is causing the error
+    serial_writer.set_color(WriterColor::BrightRed);
+    let _ = write!(serial_writer, "\n{}", _info);
+
     let mut console = CONSOLE.lock();
     console.set_color(WriterColor::BrightRed);
     let _ = write!(console, "\n{}", _info);
@@ -30,8 +34,8 @@ fn panic(_info: &PanicInfo) -> ! {
 
 lazy_static! {
     pub static ref CONSOLE: Mutex<Console> = Mutex::new(Console::new(
-        VGAWriter::new(unsafe { &mut *(0xb8000 as *mut vga_buffer::Text)}),
-        SerialWriter::new(SerialPort::new(0x3F8))
+        SerialWriter::new(SerialPort::new(0x3F8)),
+        FrameBufferWriter::new_empty(),
     ));
 }
 

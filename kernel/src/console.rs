@@ -2,27 +2,34 @@
 
 use core::fmt::{self, Write};
 
-use crate::{breakpoint, writer::{SerialWriter, VGAWriter, Writer, WriterColor}};
+use crate::{writer::{FrameBufferWriter, SerialWriter, Writer, WriterColor}};
 
 pub struct Console {
-    vga_writer: VGAWriter,
     serial_writer: SerialWriter,
+    framebuffer_writer: FrameBufferWriter,
+    is_initialized: bool,
 }
 
 impl Console {
-    pub fn new(vga_writer: VGAWriter, serial_writer: SerialWriter) -> Console{
+    pub fn new(serial_writer: SerialWriter, framebuffer_writer: FrameBufferWriter) -> Console{
         Console {
-            vga_writer: vga_writer,
             serial_writer: serial_writer,
+            framebuffer_writer: framebuffer_writer,
+            is_initialized: false,
         }
     }
     pub fn print_str(&mut self, string: &str) {
         let _ = self.serial_writer.write_str(string);
+        let _ = self.framebuffer_writer.write_str(string);
         // let _ = self.vga_writer.write_str(string);
     }
     pub fn set_color(&mut self, color: WriterColor) {
         self.serial_writer.set_color(color);
+        self.framebuffer_writer.set_color(color);
         // self.vga_writer.set_color(color);
+    }
+    pub fn set_framebuffer_writer(&mut self, writer: FrameBufferWriter) {
+        self.framebuffer_writer = writer;
     }
 }
 

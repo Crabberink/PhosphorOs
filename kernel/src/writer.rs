@@ -1,11 +1,19 @@
 #![allow(dead_code)]
 
-use crate::{serial::SerialPort, vga_buffer::{self, VGAChar}};
-use core::fmt;
+use bootloader_api::info::{FrameBufferInfo, PixelFormat};
+use noto_sans_mono_bitmap::RasterizedChar;
+
+use crate::{ serial::SerialPort, writer::noto_sans_mono_spacing::{BACKUP_CHAR, FONT_WEIGHT, RASTER_HEIGHT}};
+use core::{fmt, ptr::{self}};
+
+
 pub trait Writer: fmt::Write {
     fn print(&mut self, text: &str);
     fn set_color(&mut self, color: WriterColor);
-    fn print_with_color(&mut self, text: &str, color: WriterColor);
+    fn print_with_color(&mut self, text: &str, color: WriterColor) {
+        self.set_color(color);
+        self.print(text);
+    }
     fn is_valid(&self) -> bool;
     fn write_string(&mut self, s: &str) -> fmt::Result {
         self.print(s);
@@ -16,87 +24,6 @@ pub trait Writer: fmt::Write {
 pub struct SerialWriter {
     port: SerialPort,
     valid: bool
-}
-
-pub struct VGAWriter {
-    cursor_x: usize,
-    color: vga_buffer::VGAColor,
-    buffer: &'static mut vga_buffer::Text,
-}
-
-impl VGAWriter {
-    pub fn new(text_buffer: &'static mut vga_buffer::Text) -> VGAWriter {
-        VGAWriter {
-            cursor_x: 0,
-            color: vga_buffer::VGAColor::new(WriterColor::White, WriterColor::Black),
-            buffer: text_buffer
-        }
-    }
-    fn new_line(&mut self) {
-        //Move everything up
-        for row in 1..vga_buffer::HEIGHT {
-            for col in 0..vga_buffer::WIDTH {
-                let char = self.buffer.chars[row][col].read();
-                self.buffer.chars[row][col-1].write(char);
-            }
-        }
-        self.cursor_x = 0;
-        
-        //Clear the bottom row
-        for col in 0..vga_buffer::WIDTH {
-            self.buffer.chars[vga_buffer::HEIGHT - 1][col].write(VGAChar {
-                ascii: b' ',
-                color: self.color
-            });
-        }
-    }
-    pub fn set_background_color(&mut self, color: WriterColor) {
-        self.color.set_background(color);
-    }
-}
-
-impl Writer for VGAWriter {
-    fn print(&mut self, text: &str) {
-        for char in text.bytes() {
-            match char {
-                b'\n' => {
-                    self.new_line();
-                },
-                0x20..=0x7e => {
-                    if self.cursor_x >= vga_buffer::WIDTH {
-                       self.new_line(); 
-                    }
-
-                    self.buffer.chars[vga_buffer::HEIGHT - 1][self.cursor_x].write(VGAChar {
-                        ascii: char,
-                        color: self.color
-                    });
-
-                    self.cursor_x += 1;
-                }
-                _ => {
-                    // Non printable ASCII character
-                }
-            }
-        }
-    }
-    fn set_color(&mut self, color: WriterColor) {
-        self.color.set_foreground(color);
-    }
-    fn print_with_color(&mut self, text: &str, color: WriterColor) {
-        self.set_color(color);
-        self.print(text);
-    }
-    fn is_valid(&self) -> bool {
-        return true;
-    }
-}
-
-impl fmt::Write for VGAWriter {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.print(s);
-        Ok(())
-    }
 }
 
 impl SerialWriter {
@@ -155,6 +82,206 @@ impl fmt::Write for SerialWriter {
     }
 }
 
+mod noto_sans_mono_spacing {
+    use noto_sans_mono_bitmap::{get_raster_width, FontWeight};
+
+    pub const FONT_WEIGHT: FontWeight = FontWeight::Regular;
+
+    pub const RASTER_HEIGHT: noto_sans_mono_bitmap::RasterHeight = noto_sans_mono_bitmap::RasterHeight::Size16;
+    pub const RASTER_WIDTH: usize = get_raster_width(FONT_WEIGHT, RASTER_HEIGHT);
+
+    pub const BACKUP_CHAR: char = '?';
+}
+
+const DEFAULT_PADDING: usize = 1;
+const DEFAULT_CHAR_SPACING: usize = 0;
+const DEFAULT_LINE_SPACING: usize = 2;
+
+pub struct FrameBufferWriter {
+    frame_buffer: &'static mut [u8],
+    line_spacing: usize,
+    char_spacing: usize,
+    padding: usize,
+    buffer_info: FrameBufferInfo,
+    x_pos: usize,
+    y_pos: usize,
+    color_r: u8,
+    color_g: u8,
+    color_b: u8,
+    is_valid: bool,
+}
+
+impl FrameBufferWriter {
+    pub fn new_empty() -> FrameBufferWriter {
+        FrameBufferWriter {
+            frame_buffer: unsafe { &mut *(0x8000 as *mut [u8; 0]) },
+            line_spacing: 0,
+            char_spacing: 0,
+            padding: 0,
+            buffer_info: FrameBufferInfo { 
+                byte_len: 0,
+                width: 0, 
+                height: 0, 
+                pixel_format: PixelFormat::Rgb, 
+                bytes_per_pixel: 0, 
+                stride: 0
+            },
+            x_pos: 0,
+            y_pos: 0,
+            color_r: 0,
+            color_g: 0,
+            color_b: 0,
+            is_valid: false,
+        }
+    }
+    pub fn new(frame_buffer: &'static mut [u8], info: FrameBufferInfo) -> FrameBufferWriter {
+        FrameBufferWriter {
+            frame_buffer: frame_buffer,
+            buffer_info:  info,
+            char_spacing: DEFAULT_CHAR_SPACING,
+            line_spacing: DEFAULT_LINE_SPACING,
+            padding: DEFAULT_PADDING,
+            x_pos: 0,
+            y_pos: 0,
+            color_r: 255,
+            color_g: 255,
+            color_b: 255,
+            is_valid: true,
+        }
+    }
+    // Scroll later
+    fn new_line(&mut self) {
+        self.y_pos += noto_sans_mono_spacing::RASTER_HEIGHT.val() + self.char_spacing;
+        self.carriage_return();
+    }
+
+    fn carriage_return(&mut self) {
+        self.x_pos = self.padding;
+    }
+
+    pub fn clear(&mut self) {
+        if !self.is_valid { return; }
+        self.frame_buffer.fill(0);
+    }
+
+    fn write_char(&mut self, char: char) {
+        fn get_raster_char(c: char) -> RasterizedChar {
+            fn get(c: char) -> Option<RasterizedChar> {
+                noto_sans_mono_bitmap::get_raster(c, FONT_WEIGHT, RASTER_HEIGHT)
+            }
+
+            get(c).unwrap_or_else(|| get(BACKUP_CHAR).unwrap())
+        }
+
+        match char {
+            '\n' => self.new_line(),
+            '\r' => self.carriage_return(),
+            c => {
+                let x_pos = self.x_pos + noto_sans_mono_spacing::RASTER_WIDTH + self.char_spacing;
+                if x_pos >= self.buffer_info.width - self.padding {
+                    self.new_line();
+                }
+                let y_pos = self.y_pos + noto_sans_mono_spacing::RASTER_HEIGHT.val() + self.line_spacing;
+                if y_pos >= self.buffer_info.height - self.padding {
+                    self.y_pos = self.padding;
+                    self.clear();
+                }
+                self.display_raster_char(get_raster_char(c));
+            }
+        }
+    }
+
+    fn display_raster_char(&mut self, char: RasterizedChar) {
+        for (x,row) in char.raster().iter().enumerate() {
+            for (y,byte) in row.iter().enumerate() {
+                self.write_pixel(self.x_pos + x, self.y_pos + y, *byte);
+            }
+        }
+        self.x_pos += self.char_spacing;
+    }
+    // Writes a greyscale pixel to the buffer at x y. The brightness is value. 
+    fn write_pixel(&mut self, x:usize, y:usize, value:u8) {
+        let offset = y * self.buffer_info.stride + x;
+        let color = match self.buffer_info.pixel_format {
+            PixelFormat::Rgb => {
+                [
+                    self.color_r * (value/255),
+                    self.color_g * (value/255),
+                    self.color_b * (value/255),
+                    0,
+                ]
+            },
+            PixelFormat::Bgr => {
+                [
+                    self.color_b * (value/255),
+                    self.color_g * (value/255),
+                    self.color_r * (value/255),
+                    0
+                ]
+            },
+            PixelFormat::U8 => {
+                [
+                    if value > 200 { 0xf } else { 0 },
+                    0,0,0
+                ]
+            },
+            format => {
+                self.buffer_info.pixel_format = PixelFormat::Rgb;
+                panic!("Unknown frame buffer color format {:?}", format);
+            }
+        };
+        let bytes_per_pixel = self.buffer_info.bytes_per_pixel;
+        let byte_offset = bytes_per_pixel;
+        self.frame_buffer[offset..(offset + byte_offset)].copy_from_slice(&color[..bytes_per_pixel]);
+
+        let _ = unsafe { ptr::read_volatile(&self.frame_buffer[byte_offset]) };
+    }
+}
+
+impl Writer for FrameBufferWriter {
+    fn is_valid(&self) -> bool {
+        self.is_valid
+    }
+    fn print(&mut self, text: &str) {
+        if !self.is_valid { return; }
+        for char in text.chars() {
+            self.write_char(char);
+        }
+    }
+    fn set_color(&mut self, color: WriterColor) {
+        let color: [u8; 3] = match color {
+            WriterColor::Red => [128,0,0],
+            WriterColor::Yellow => [128,128,0],
+            WriterColor::Green => [0,0,128],
+            WriterColor::Blue => [0,128,0],
+            WriterColor::Magenta => [188,0,188],
+            WriterColor::Cyan => [0,128,128],
+            WriterColor::White => [255,255,255],
+            WriterColor::Black => [0,0,0],
+            WriterColor::Gray => [128,128,128],
+            WriterColor::Brown => [100, 64, 0],
+            WriterColor::BrightBlue => [0,0,255],
+            WriterColor::BrightCyan => [0,255,255],
+            WriterColor::BrightGreen => [0,255,0],
+            WriterColor::BrightMagenta => [255,0,255],
+            WriterColor::BrightRed => [255,0,0],
+        };
+        self.color_r = color[0];
+        self.color_g = color[1];
+        self.color_b = color[2];
+    }
+}
+
+impl fmt::Write for FrameBufferWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.print(s);
+        Ok(())
+    }
+}
+
+unsafe impl Send for FrameBufferWriter {}
+unsafe impl Sync for FrameBufferWriter {}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WriterColor {
@@ -177,5 +304,4 @@ pub enum WriterColor {
 
 pub struct GlobalWriter {
     serial_writer: SerialWriter,
-    vga_writer: VGAWriter,
 }
