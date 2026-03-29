@@ -30,6 +30,7 @@ impl Console {
     }
     pub fn set_framebuffer_writer(&mut self, writer: FrameBufferWriter) {
         self.framebuffer_writer = writer;
+        self.framebuffer_writer.clear();
     }
 }
 

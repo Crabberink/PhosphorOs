@@ -1,5 +1,6 @@
 use bootloader_api::BootInfo;
 use x86_64::instructions::interrupts::without_interrupts;
+use core::fmt::Write;
 
 use crate::{breakpoint, gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE};
 
@@ -45,7 +46,7 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
     without_interrupts(|| {
         let mut console = CONSOLE.lock();
         console.set_color(WriterColor::White);
-        console.print_str("OS");
+        console.print_str("OS\n");
     });
 
     breakpoint!();

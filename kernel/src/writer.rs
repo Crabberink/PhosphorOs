@@ -192,30 +192,29 @@ impl FrameBufferWriter {
     }
 
     fn display_raster_char(&mut self, char: RasterizedChar) {
-        for (x,row) in char.raster().iter().enumerate() {
-            for (y,byte) in row.iter().enumerate() {
+        for (y,row) in char.raster().iter().enumerate() {
+            for (x,byte) in row.iter().enumerate() {
                 self.write_pixel(self.x_pos + x, self.y_pos + y, *byte);
             }
         }
-        self.x_pos += self.char_spacing;
+        self.x_pos += self.char_spacing + char.width();
     }
     // Writes a greyscale pixel to the buffer at x y. The brightness is value. 
     fn write_pixel(&mut self, x:usize, y:usize, value:u8) {
-        let offset = y * self.buffer_info.stride + x;
         let color = match self.buffer_info.pixel_format {
             PixelFormat::Rgb => {
                 [
-                    self.color_r * (value/255),
-                    self.color_g * (value/255),
-                    self.color_b * (value/255),
+                    ((self.color_r as u16 * value as u16) / 255) as u8,
+                    ((self.color_g as u16 * value as u16) / 255) as u8,
+                    ((self.color_b as u16 * value as u16) / 255) as u8,
                     0,
                 ]
             },
             PixelFormat::Bgr => {
                 [
-                    self.color_b * (value/255),
-                    self.color_g * (value/255),
-                    self.color_r * (value/255),
+                    ((self.color_b as u16 * value as u16) / 255) as u8,
+                    ((self.color_g as u16 * value as u16) / 255) as u8,
+                    ((self.color_r as u16 * value as u16) / 255) as u8,
                     0
                 ]
             },
@@ -230,11 +229,11 @@ impl FrameBufferWriter {
                 panic!("Unknown frame buffer color format {:?}", format);
             }
         };
-        let bytes_per_pixel = self.buffer_info.bytes_per_pixel;
-        let byte_offset = bytes_per_pixel;
-        self.frame_buffer[offset..(offset + byte_offset)].copy_from_slice(&color[..bytes_per_pixel]);
+        let bytes_per_pixel = self.buffer_info.bytes_per_pixel as usize;
+        let offset = (y * self.buffer_info.stride + x) * bytes_per_pixel;
+        self.frame_buffer[offset..(offset + bytes_per_pixel)].copy_from_slice(&color[..bytes_per_pixel]);
 
-        let _ = unsafe { ptr::read_volatile(&self.frame_buffer[byte_offset]) };
+        let _ = unsafe { ptr::read_volatile(&self.frame_buffer[offset]) };
     }
 }
 
@@ -252,8 +251,8 @@ impl Writer for FrameBufferWriter {
         let color: [u8; 3] = match color {
             WriterColor::Red => [128,0,0],
             WriterColor::Yellow => [128,128,0],
-            WriterColor::Green => [0,0,128],
-            WriterColor::Blue => [0,128,0],
+            WriterColor::Green => [0,128,0],
+            WriterColor::Blue => [0,0,128],
             WriterColor::Magenta => [188,0,188],
             WriterColor::Cyan => [0,128,128],
             WriterColor::White => [255,255,255],

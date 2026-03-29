@@ -36,7 +36,7 @@ pub fn setup_idt() {
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
     let mut console = CONSOLE.lock();
-    console.set_color(WriterColor::Blue);
+    console.set_color(WriterColor::BrightBlue);
     let _ = write!(console, "\nBREAKPOINT:\n{:#?}",stack_frame);
 }
 

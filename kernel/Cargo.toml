@@ -19,3 +19,6 @@ features = ["spin_no_std"]
 name = "kernel"
 test = false
 bench = false
+
+[build-dependencies]
+bootloader = { version = "0.11", default-features = false, features = ["uefi"] }
