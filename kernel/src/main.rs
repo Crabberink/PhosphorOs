@@ -13,6 +13,7 @@ mod interrupts;
 mod gdt;
 mod phosphor_os;
 mod console;
+mod keyboard;
 
 use crate::console::Console;
 use crate::serial::*;

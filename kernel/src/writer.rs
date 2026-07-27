@@ -19,6 +19,7 @@ pub trait Writer: fmt::Write {
         self.print(s);
         Ok(())
     }
+    fn backspace(&mut self) { }
 }
 
 pub struct SerialWriter {
@@ -30,7 +31,7 @@ impl SerialWriter {
     pub fn new(port: SerialPort) -> SerialWriter {
         SerialWriter {
             valid: port.is_valid(),
-            port: port
+            port
         }
     }
 }
@@ -72,7 +73,12 @@ impl Writer for SerialWriter {
         self.print(text);
     }
     fn is_valid(&self) -> bool {
-        return self.valid;
+        self.valid
+    }
+    fn backspace(&mut self) {
+        self.port.write_serial(0x08); // Backspace character
+        self.port.write_serial(b' ');   // Overwrite with space
+        self.port.write_serial(0x08); // Move back again
     }
 }
 impl fmt::Write for SerialWriter {
@@ -136,7 +142,7 @@ impl FrameBufferWriter {
     }
     pub fn new(frame_buffer: &'static mut [u8], info: FrameBufferInfo) -> FrameBufferWriter {
         FrameBufferWriter {
-            frame_buffer: frame_buffer,
+            frame_buffer,
             buffer_info:  info,
             char_spacing: DEFAULT_CHAR_SPACING,
             line_spacing: DEFAULT_LINE_SPACING,
@@ -229,7 +235,7 @@ impl FrameBufferWriter {
                 panic!("Unknown frame buffer color format {:?}", format);
             }
         };
-        let bytes_per_pixel = self.buffer_info.bytes_per_pixel as usize;
+        let bytes_per_pixel = self.buffer_info.bytes_per_pixel;
         let offset = (y * self.buffer_info.stride + x) * bytes_per_pixel;
         self.frame_buffer[offset..(offset + bytes_per_pixel)].copy_from_slice(&color[..bytes_per_pixel]);
 
@@ -268,6 +274,15 @@ impl Writer for FrameBufferWriter {
         self.color_r = color[0];
         self.color_g = color[1];
         self.color_b = color[2];
+    }
+    fn backspace(&mut self) {
+        if self.x_pos < noto_sans_mono_spacing::RASTER_WIDTH - self.char_spacing {
+            return;
+        }
+        let x_pos = self.x_pos - noto_sans_mono_spacing::RASTER_WIDTH - self.char_spacing;
+        self.x_pos = x_pos;
+        self.write_char(' ');
+        self.x_pos = x_pos;
     }
 }
 

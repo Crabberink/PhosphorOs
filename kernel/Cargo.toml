@@ -10,6 +10,7 @@ volatile = "0.2.6"
 x86_64 = "0.15.2"
 pic8259 = "0.11.0"
 noto-sans-mono-bitmap = "0.3.1"
+pc-keyboard = "0.9.0"
 
 [dependencies.lazy_static]
 version = "1.0"

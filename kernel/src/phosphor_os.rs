@@ -1,6 +1,5 @@
 use bootloader_api::BootInfo;
-use x86_64::instructions::interrupts::without_interrupts;
-use core::fmt::Write;
+use x86_64::instructions::interrupts::{self, without_interrupts};
 
 use crate::{breakpoint, gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE};
 
@@ -30,6 +29,8 @@ pub fn init(boot_info: &'static mut BootInfo) {
     unsafe {
         let mut pics = PICS.lock();
         pics.initialize();
+
+        pics.write_masks(0, 0); // Unmask all interrupts
     }
     x86_64::instructions::interrupts::enable();
 }
@@ -41,15 +42,35 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
         let mut console = CONSOLE.lock();
         console.set_color(WriterColor::Yellow);
         console.print_str("\nPhosphor");
-    });
-
-    without_interrupts(|| {
-        let mut console = CONSOLE.lock();
         console.set_color(WriterColor::White);
         console.print_str("OS\n");
     });
 
     breakpoint!();
+    
+    without_interrupts(|| {
+        let mut console = CONSOLE.lock();
+        console.set_color(WriterColor::Green);
+        console.print_str("Enabling interrupts\n");
+    });
+
+    interrupts::enable();
+
+
+    // cause_a_fucking_stack_overflow(0);
 
     halt_loop()
+}
+
+#[allow(unconditional_recursion)]
+#[allow(dead_code)]
+fn cause_a_fucking_stack_overflow(arg: u32) -> ! {
+    if arg == 0 {
+        without_interrupts(|| {
+            let mut console = CONSOLE.lock();
+            console.set_color(WriterColor::BrightGreen);
+            console.print_str("\nCausing a stack overflow hooray!");
+        });
+    }
+    cause_a_fucking_stack_overflow(arg.wrapping_add(1));
 }

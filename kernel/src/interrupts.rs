@@ -2,11 +2,13 @@ use core::fmt::Write;
 
 use pic8259::ChainedPics;
 use spin::Mutex;
+use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
+use crate::keyboard::key_event_handler;
 use crate::writer::WriterColor;
-use crate::CONSOLE;
+use crate::{CONSOLE, halt_loop};
 use crate::lazy_static;
 
 lazy_static! {
@@ -32,6 +34,8 @@ lazy_static! {
 
 pub fn setup_idt() {
     IDT.load();
+
+
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
@@ -45,11 +49,12 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
     console.set_color(WriterColor::Yellow);
     let _ = write!(console, "\nPhosphorOS has experienced a ");
     console.set_color(WriterColor::Red);
-    let _ = write!(console, "FATAL ERROR!\n");
+    let _ = writeln!(console, "FATAL ERROR!");
     console.set_color(WriterColor::BrightRed);
-    let _ = write!(console, "A DOUBLE FAULT EXCEPTION HAS OCCURRED\n");
+    let _ = writeln!(console, "A DOUBLE FAULT EXCEPTION HAS OCCURRED");
     let _ = write!(console, "The following information is available:\n{:#?}",stack_frame);
-    loop { }
+    
+    halt_loop()
 }
 
 pub const PIC_1_OFFSET: u8 = 32;                // All offsets need to be multiples of 8 because
@@ -63,13 +68,16 @@ unsafe {
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum HardwareInterruptIndex {
+    #[allow(clippy::identity_op)]
     Timer = PIC_1_OFFSET + 0,
     Keyboard,
 }
 
+const KEYBOARD_PORT: u16 = 0x60;
+
 extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
-    let mut console = CONSOLE.lock();
-    console.print_str(".");
+    // let mut console = CONSOLE.lock();
+    // console.print_str(".");
 
     unsafe {
         let mut pics = PICS.lock();
@@ -78,8 +86,11 @@ extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
 }
 
 extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {
-    let mut console = CONSOLE.lock();
-    console.print_str("\nKeyboard interrupt raised");
+    let mut port: Port<u8> = Port::new(KEYBOARD_PORT);
+
+    let scancode = unsafe { port.read() }; // Read the scancode from the keyboard port
+
+    key_event_handler(scancode);
 
     unsafe {
         let mut pics = PICS.lock();
