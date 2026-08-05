@@ -1,7 +1,7 @@
 use bootloader_api::BootInfo;
-use x86_64::instructions::interrupts::{self, without_interrupts};
-
-use crate::{breakpoint, gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE};
+use x86_64::instructions::interrupts::without_interrupts;
+use x86_64::registers::control::Cr3;
+use crate::{breakpoint, gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, println};
 
 pub fn init(boot_info: &'static mut BootInfo) {
     without_interrupts(|| {
@@ -38,24 +38,17 @@ pub fn init(boot_info: &'static mut BootInfo) {
 pub fn main(boot_info: &'static mut BootInfo) -> ! {
     init(boot_info);
 
-    without_interrupts(|| {
-        let mut console = CONSOLE.lock();
-        console.set_color(WriterColor::Yellow);
-        console.print_str("\nPhosphor");
-        console.set_color(WriterColor::White);
-        console.print_str("OS\n");
-    });
+    cprint!(WriterColor::Yellow, "\nPhosphor");
+    cprintln!(WriterColor::White, "OS");
 
     breakpoint!();
-    
-    without_interrupts(|| {
-        let mut console = CONSOLE.lock();
-        console.set_color(WriterColor::Green);
-        console.print_str("Enabling interrupts\n");
-    });
 
-    interrupts::enable();
+    let (l4_page_table, _flags) = Cr3::read();
 
+    println!("L4 Page Table at: {:?}", l4_page_table.start_address());
+
+    // let ptr = 0xb00bf01d as *mut u8;
+    // unsafe { *ptr = 69; };
 
     // cause_a_fucking_stack_overflow(0);
 

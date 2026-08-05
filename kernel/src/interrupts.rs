@@ -3,7 +3,8 @@ use core::fmt::Write;
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::registers::control::Cr2;
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
 use crate::keyboard::key_event_handler;
@@ -17,6 +18,7 @@ lazy_static! {
         
         // Interrupts
         idt.breakpoint.set_handler_fn(breakpoint_handler);
+        idt.page_fault.set_handler_fn(page_fault_handler);
 
         unsafe {
             idt.double_fault
@@ -34,14 +36,12 @@ lazy_static! {
 
 pub fn setup_idt() {
     IDT.load();
-
-
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
     let mut console = CONSOLE.lock();
     console.set_color(WriterColor::BrightBlue);
-    let _ = write!(console, "\nBREAKPOINT:\n{:#?}",stack_frame);
+    let _ = writeln!(console, "\nBREAKPOINT:\n{:#?}",stack_frame);
 }
 
 extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame, _err_code: u64) -> ! {
@@ -52,9 +52,22 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
     let _ = writeln!(console, "FATAL ERROR!");
     console.set_color(WriterColor::BrightRed);
     let _ = writeln!(console, "A DOUBLE FAULT EXCEPTION HAS OCCURRED");
-    let _ = write!(console, "The following information is available:\n{:#?}",stack_frame);
+    let _ = writeln!(console, "The following information is available:\n{:#?}",stack_frame);
     
     halt_loop()
+}
+
+extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, err_code: PageFaultErrorCode) {
+    let mut console = CONSOLE.lock();
+
+    console.set_color(WriterColor::Red);
+    let _ = writeln!(console, "EXCEPTION: PAGE FAULT");
+    console.set_color(WriterColor::BrightRed);
+    let _ = writeln!(console, "Accessed Address: {:?}", Cr2::read_raw());
+    let _ = writeln!(console, "Error Code: {:?}", err_code);
+    let _ = writeln!(console, "{:#?}", stack_frame);
+
+    halt_loop();
 }
 
 pub const PIC_1_OFFSET: u8 = 32;                // All offsets need to be multiples of 8 because

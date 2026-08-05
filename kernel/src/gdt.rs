@@ -29,7 +29,7 @@ lazy_static! {
 
         let tss = gdt.append(Descriptor::tss_segment(&TSS));
 
-        GDTSelectors { gdt: gdt, cs: cs, ds:ds, tss: tss}
+        GDTSelectors { gdt, cs, ds, tss}
     };
 }
 
@@ -40,6 +40,7 @@ lazy_static! {
     static ref TSS: TaskStateSegment = {
         let mut tss = TaskStateSegment::new();
 
+        #[allow(unused_unsafe)]
         tss.interrupt_stack_table[DOUBLE_FAULT_STACK_INDEX as usize] = {
             const STACK_SIZE: usize = 4096 * 5;
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];

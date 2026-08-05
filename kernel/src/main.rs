@@ -1,12 +1,14 @@
 #![no_std]
 #![no_main]
 #![feature(abi_x86_interrupt)]
+#![feature(stmt_expr_attributes)]
 
 use core::fmt::Write;
 use core::panic::PanicInfo;
 use bootloader_api::entry_point;
 use lazy_static::lazy_static;
 use spin::Mutex;
+
 mod serial;
 mod writer;
 mod interrupts;
@@ -44,7 +46,7 @@ entry_point!(phosphor_os::main);
 
 fn halt_loop() -> ! {
     // Wait for interrupts indefinitely
-    loop { 
+    loop {
         x86_64::instructions::hlt();
     }
 }

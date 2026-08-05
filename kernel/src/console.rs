@@ -1,8 +1,58 @@
 #![allow(dead_code)]
 
 use core::fmt::{self, Write};
+use x86_64::instructions::interrupts::without_interrupts;
+use crate::{writer::{FrameBufferWriter, SerialWriter, Writer, WriterColor}, CONSOLE};
 
-use crate::{writer::{FrameBufferWriter, SerialWriter, Writer, WriterColor}};
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::console::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! console_color {
+    ($color:expr) => (
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            $crate::CONSOLE.lock().set_color($color);
+        })
+    );
+}
+
+#[macro_export]
+macro_rules! cprint {
+    ($color:expr, $($arg:tt)*) => (
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            use core::fmt::Write;
+            let mut console = $crate::CONSOLE.lock();
+            console.set_color($color);
+            let _ = write!(console, $($arg)*);
+        });
+    );
+}
+
+#[macro_export]
+macro_rules! cprintln {
+    ($color:expr, $($arg:tt)*) => (
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            use core::fmt::Write;
+            let mut console = $crate::CONSOLE.lock();
+            console.set_color($color);
+            let _ = writeln!(console, $($arg)*);
+        });
+    );
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    without_interrupts(|| {
+        CONSOLE.lock().write_fmt(args).unwrap();
+    });
+}
 
 pub struct Console {
     serial_writer: SerialWriter,

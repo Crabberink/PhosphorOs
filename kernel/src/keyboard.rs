@@ -23,7 +23,7 @@ pub fn key_event_handler(scancode: u8) {
 				console.print_char(character);
 			},
 			// Keys that aren't unicode characters, like F1, Enter, etc. can be handled here
-			DecodedKey::RawKey(key) => {
+			DecodedKey::RawKey(_key) => {
 				
 			},
 		}
