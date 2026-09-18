@@ -1,0 +1,65 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug kernel (QEMU)",
+			"targetCreateCommands": ["target create ${workspaceFolder}/target/x86_64-unknown-none/debug/kernel"],
+			"processCreateCommands": ["gdb-remote localhost:1234"]
+		},
+		{
+			"name": "Debug executable 'kernel'",
+			"type": "lldb",
+			"request": "launch",
+			"cargo": {
+				"args": [
+					"run",
+					"--bin=kernel",
+					"--package=kernel"
+				]
+			},
+			"args": []
+		},
+		{
+			"name": "Debug unit tests in executable 'kernel'",
+			"type": "lldb",
+			"request": "launch",
+			"cargo": {
+				"args": [
+					"test",
+					"--bin=kernel",
+					"--package=kernel"
+				]
+			}
+		},
+		{
+			"name": "Debug executable 'phosphor_os'",
+			"type": "lldb",
+			"request": "launch",
+			"cargo": {
+				"args": [
+					"run",
+					"--bin=phosphor_os",
+					"--package=phosphor_os"
+				]
+			},
+			"args": []
+		},
+		{
+			"name": "Debug unit tests in executable 'phosphor_os'",
+			"type": "lldb",
+			"request": "launch",
+			"cargo": {
+				"args": [
+					"test",
+					"--bin=phosphor_os",
+					"--package=phosphor_os"
+				]
+			}
+		}
+	]
+}

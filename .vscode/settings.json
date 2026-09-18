@@ -1,5 +1,7 @@
 {
 	"files.associations": {
 		"stdint.h": "c"
-	}
+	},
+	"makefile.configureOnOpen": false,
+	"workbench.colorTheme": "GitHub Dark Default"
 }
