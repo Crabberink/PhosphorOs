@@ -6,10 +6,7 @@
                 "${workspaceFolder}/**"
             ],
             "defines": [
-                "_cdecl=",
-                "far=",
-                "huge=",
-                "near="
+                "_cdecl="
             ],
             "compilerPath": "/usr/bin/watcom/binl/wcc",
             "cStandard": "c99",
@@ -17,23 +14,6 @@
             "intelliSenseMode": "linux-clang-x86",
             "compilerArgs": [
                 "-4 -d3 -s -wx -ms -zl -zq"
-            ]
-        },
-        {
-            "name": "GCC",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
-            "defines": [],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c17",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "linux-clang-x86",
-            "compilerArgs": [
-                "-fno-pic ",
-                "-fno-pie ",
-                "-m32 ",
-                "-ffreestanding"
             ]
         }
     ],

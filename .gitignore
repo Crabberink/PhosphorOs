@@ -1,7 +1,0 @@
-build
-qemu-10.1.0-rc3
-src/kernel/
-
-# Added by cargo
-
-/target
