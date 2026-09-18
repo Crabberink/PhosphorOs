@@ -3,12 +3,17 @@ name = "phosphor_os"
 version = "0.1.0"
 edition = "2024"
 
+[package.metadata.bootloader]
+map-physical-memory = true
+
 [build-dependencies]
 bootloader = { version = "0.11", default-features = false, features = ["uefi"] }
 kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
 
+
 [dependencies]
-ovmf-prebuilt = "0.1.0-alpha.1"
+ovmf-prebuilt = "0.2.9"
+
 
 [workspace]
 members = ["kernel"]

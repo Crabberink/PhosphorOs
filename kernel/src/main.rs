@@ -5,7 +5,8 @@
 
 use core::fmt::Write;
 use core::panic::PanicInfo;
-use bootloader_api::entry_point;
+use bootloader_api::{entry_point, BootloaderConfig};
+use bootloader_api::config::Mapping;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -16,6 +17,7 @@ mod gdt;
 mod phosphor_os;
 mod console;
 mod keyboard;
+mod memory;
 
 use crate::console::Console;
 use crate::serial::*;
@@ -42,7 +44,15 @@ lazy_static! {
     ));
 }
 
-entry_point!(phosphor_os::main);
+pub static BOOTLOADER_CONFIG: BootloaderConfig = {
+    let mut config = BootloaderConfig::new_default();
+
+    config.mappings.physical_memory = Some(Mapping::Dynamic);
+
+    config
+};
+
+entry_point!(phosphor_os::main, config = &BOOTLOADER_CONFIG);
 
 fn halt_loop() -> ! {
     // Wait for interrupts indefinitely

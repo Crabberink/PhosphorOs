@@ -1,18 +1,15 @@
 use bootloader_api::BootInfo;
 use x86_64::instructions::interrupts::without_interrupts;
 use x86_64::registers::control::Cr3;
-use crate::{breakpoint, gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, println};
+use x86_64::structures::paging::{PageTable, Translate};
+use x86_64::{PhysAddr, VirtAddr};
+use crate::{gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, println, memory};
 
 pub fn init(boot_info: &'static mut BootInfo) {
     without_interrupts(|| {
-        // I honestly have no clue what the fuck is going on here but the borrow checker stopped screaming
-        let framebuffer_option = boot_info.framebuffer.take();
-
-        if framebuffer_option.is_none() {
+        let Some(framebuffer) = boot_info.framebuffer.take() else {
             return;
-        }
-
-        let framebuffer = framebuffer_option.unwrap();
+        };
 
         let info = framebuffer.info();
         let buffer = framebuffer.into_buffer();
@@ -36,24 +33,38 @@ pub fn init(boot_info: &'static mut BootInfo) {
 }
 
 pub fn main(boot_info: &'static mut BootInfo) -> ! {
+    let Some(physical_memory_offset) = boot_info.physical_memory_offset.into_option() else {
+        init(boot_info); // Still gotta init so we can print 😭🥀
+        panic!("Bootloader did not map physical memory!");
+    };
+
     init(boot_info);
+
+    let phys_mem_offset = VirtAddr::new(physical_memory_offset);
+
+    let mem_mapper = unsafe { memory::init(VirtAddr::new(physical_memory_offset)) };
+
+    let addresses = [
+        0x80001008,
+        physical_memory_offset,
+    ];
+
+    for &address in &addresses {
+        let virt = VirtAddr::new(address);
+        let phys = mem_mapper.translate_addr(virt);
+        cprintln!(WriterColor::White, "{:?} -> {:?}", virt, phys);
+    }
 
     cprint!(WriterColor::Yellow, "\nPhosphor");
     cprintln!(WriterColor::White, "OS");
-
-    breakpoint!();
 
     let (l4_page_table, _flags) = Cr3::read();
 
     println!("L4 Page Table at: {:?}", l4_page_table.start_address());
 
-    // let ptr = 0xb00bf01d as *mut u8;
-    // unsafe { *ptr = 69; };
-
-    // cause_a_fucking_stack_overflow(0);
-
     halt_loop()
 }
+
 
 #[allow(unconditional_recursion)]
 #[allow(dead_code)]
