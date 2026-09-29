@@ -9,7 +9,7 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, Pag
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
 use crate::keyboard::key_event_handler;
 use crate::writer::WriterColor;
-use crate::{CONSOLE, halt_loop};
+use crate::{CONSOLE, cprintln, halt_loop};
 use crate::lazy_static;
 
 lazy_static! {
@@ -19,11 +19,14 @@ lazy_static! {
         // Interrupts
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.page_fault.set_handler_fn(page_fault_handler);
-
+        
         unsafe {
             idt.double_fault
                 .set_handler_fn(double_fault_handler)
                 .set_stack_index(DOUBLE_FAULT_STACK_INDEX);
+            
+            idt.stack_segment_fault
+                .set_handler_fn(stack_segment_fault_handler);
         }
 
         // Hardware interrupts
@@ -45,6 +48,12 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
 }
 
 extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame, _err_code: u64) -> ! {
+    // Prevent a deadlock during the double fault
+    // No further threads will be able to use the console anyway since the machine will shut down
+    unsafe {
+        CONSOLE.force_unlock();
+    }
+
     let mut console = CONSOLE.lock();
     console.set_color(WriterColor::Yellow);
     let _ = write!(console, "\nPhosphorOS has experienced a ");
@@ -70,6 +79,12 @@ extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, e
     halt_loop();
 }
 
+extern  "x86-interrupt" fn stack_segment_fault_handler(stack_frame: InterruptStackFrame, _err_code: u64) {
+    cprintln!(WriterColor::Red, "EXCEPTION: STACK SEGMENT FAULT");
+
+    cprintln!(WriterColor::BrightRed, "{:?}", stack_frame);
+}
+
 pub const PIC_1_OFFSET: u8 = 32;                // All offsets need to be multiples of 8 because
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;  // Lower 3 bits are reserved and not counted
 
@@ -93,7 +108,7 @@ extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     // console.print_str(".");
 
     unsafe {
-        let mut pics = PICS.lock();
+        let mut pics: spin::MutexGuard<'_, ChainedPics> = PICS.lock();
         pics.notify_end_of_interrupt(HardwareInterruptIndex::Timer as u8);
     }
 }

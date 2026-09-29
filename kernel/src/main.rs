@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 #![feature(stmt_expr_attributes)]
+#![feature(type_alias_impl_trait)]
 
 use core::fmt::Write;
 use core::panic::PanicInfo;
@@ -9,26 +10,25 @@ use bootloader_api::{entry_point, BootloaderConfig};
 use bootloader_api::config::Mapping;
 use lazy_static::lazy_static;
 use spin::Mutex;
+use x86_64::instructions::port::Port;
 
 mod serial;
 mod writer;
 mod interrupts;
 mod gdt;
-mod phosphor_os;
+mod kernel;
 mod console;
 mod keyboard;
 mod memory;
 
 use crate::console::Console;
-use crate::serial::*;
 use crate::writer::*;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    let mut serial_writer = SerialWriter::new(SerialPort::new(0x3F8));
-    // Backup message in case the CONSOLE is causing the error
-    serial_writer.set_color(WriterColor::BrightRed);
-    let _ = write!(serial_writer, "\n{}", _info);
+    unsafe {
+        CONSOLE.force_unlock();
+    }
 
     let mut console = CONSOLE.lock();
     console.set_color(WriterColor::BrightRed);
@@ -37,11 +37,16 @@ fn panic(_info: &PanicInfo) -> ! {
     halt_loop();
 }
 
+const SERIAL_OUT: u16 = 0x3F8;
+
 lazy_static! {
-    pub static ref CONSOLE: Mutex<Console> = Mutex::new(Console::new(
-        SerialWriter::new(SerialPort::new(0x3F8)),
-        FrameBufferWriter::new_empty(),
-    ));
+    pub static ref CONSOLE: Mutex<Console> = {
+        let port: Port<u8> = Port::new(SERIAL_OUT);
+        Mutex::new(Console::new(
+            SerialWriter::new(port),
+            FrameBufferWriter::new_empty(),
+        ))
+    };
 }
 
 pub static BOOTLOADER_CONFIG: BootloaderConfig = {
@@ -52,7 +57,7 @@ pub static BOOTLOADER_CONFIG: BootloaderConfig = {
     config
 };
 
-entry_point!(phosphor_os::main, config = &BOOTLOADER_CONFIG);
+entry_point!(kernel::main, config = &BOOTLOADER_CONFIG);
 
 fn halt_loop() -> ! {
     // Wait for interrupts indefinitely

@@ -314,7 +314,6 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
- "bootloader",
  "bootloader_api",
  "lazy_static",
  "noto-sans-mono-bitmap",

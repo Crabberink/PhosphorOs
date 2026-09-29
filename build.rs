@@ -1,5 +1,4 @@
 use std::path::{PathBuf};
-use bootloader::BootConfig;
 
 fn main() {
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());

@@ -2,8 +2,8 @@
 
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
 use noto_sans_mono_bitmap::RasterizedChar;
-
-use crate::{ serial::SerialPort, writer::noto_sans_mono_spacing::{BACKUP_CHAR, FONT_WEIGHT, RASTER_HEIGHT}};
+use x86_64::instructions::port::Port;
+use crate::{ writer::noto_sans_mono_spacing::{BACKUP_CHAR, FONT_WEIGHT, RASTER_HEIGHT}};
 use core::{fmt, ptr::{self}};
 
 
@@ -23,14 +23,12 @@ pub trait Writer: fmt::Write {
 }
 
 pub struct SerialWriter {
-    port: SerialPort,
-    valid: bool
+    port: Port<u8>,
 }
 
 impl SerialWriter {
-    pub fn new(port: SerialPort) -> SerialWriter {
+    pub fn new(port: Port<u8>) -> SerialWriter {
         SerialWriter {
-            valid: port.is_valid(),
             port
         }
     }
@@ -39,7 +37,9 @@ impl SerialWriter {
 impl Writer for SerialWriter {
     fn print(&mut self, text: &str) {
         for char in text.bytes() {
-            self.port.write_serial(char);
+            unsafe {
+                self.port.write(char);
+            }
         }
     }
     fn set_color(&mut self, color: WriterColor) {
@@ -62,23 +62,28 @@ impl Writer for SerialWriter {
         };
 
         // Write the color code command
-        self.port.write_serial(b'\x1B');
-        self.port.write_serial(b'[');
-        self.port.write_serial(color_code[0]);
-        self.port.write_serial(color_code[1]);
-        self.port.write_serial(b'm');
+        unsafe {
+            self.port.write(b'\x1B');
+            self.port.write(b'[');
+            self.port.write(color_code[0]);
+            self.port.write(color_code[1]);
+            self.port.write(b'm');
+        }
     }
     fn print_with_color(&mut self, text: &str, color: WriterColor) {
         self.set_color(color);
         self.print(text);
     }
     fn is_valid(&self) -> bool {
-        self.valid
+        // self.port.valid
+        true
     }
     fn backspace(&mut self) {
-        self.port.write_serial(0x08); // Backspace character
-        self.port.write_serial(b' ');   // Overwrite with space
-        self.port.write_serial(0x08); // Move back again
+        unsafe {
+            self.port.write(0x08); // Backspace character
+            self.port.write(b' ');   // Overwrite with space
+            self.port.write(0x08); // Move back again
+        }
     }
 }
 impl fmt::Write for SerialWriter {

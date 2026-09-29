@@ -3,5 +3,6 @@
 		"stdint.h": "c"
 	},
 	"makefile.configureOnOpen": false,
-	"workbench.colorTheme": "Yarn Spinner Dark"
+	"workbench.colorTheme": "Yarn Spinner Dark",
+	"rust-analyzer.cargo.target": "x86_64-unknown-none"
 }

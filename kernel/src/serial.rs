@@ -7,12 +7,14 @@ use core::arch::asm;
 // DLAB 0: 1 - Enable Interrupt Reg
 // DLAB 1: 0 - LSB BAUD DIVISOR
 // DLAB 1: 1 - MSB BAUD DIVISOR
+#[deprecated]
 pub struct SerialPort {
     address: u16,
     divisor: u16,
     valid: bool,
 }
 
+#[allow(deprecated,dead_code)]
 impl SerialPort {
     pub fn new(address: u16) -> SerialPort {
         let mut serial_port: SerialPort = SerialPort {
