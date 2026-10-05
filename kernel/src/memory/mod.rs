@@ -3,7 +3,6 @@ use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
-
 /// Initialize a new OffsetPageTable
 ///
 /// Unsafe because the caller must guarantee that the complete physical memory is mapped to virtual memory at the passed `phys_mem_offset`.
@@ -35,6 +34,8 @@ unsafe fn active_l4_table(phys_mem_offset: VirtAddr) -> &'static mut PageTable {
 // Bunch of unstable unreleased bullshit
 type FrameIter = impl Iterator<Item = PhysFrame>;
 
+// mb but I am NOT having a damn error here for all eternity
+#[cfg(not(rust_analyzer))]
 #[define_opaque(FrameIter)]
 fn usable_frames(memory_regions: &'static MemoryRegions) -> FrameIter {
     let regions = memory_regions.iter();
@@ -47,7 +48,6 @@ fn usable_frames(memory_regions: &'static MemoryRegions) -> FrameIter {
 
     let frames= frame_addresses.map(|a| PhysFrame::containing_address(PhysAddr::new(a)));
 
-    // fake error sent by benjamin netenyahu
     frames
 }
 
@@ -69,7 +69,6 @@ impl BootInfoFrameAllocator {
             frames
         }
     }
-
 }
 
 unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {

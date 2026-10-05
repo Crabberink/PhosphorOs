@@ -1,11 +1,11 @@
+use alloc::vec::Vec;
 use bootloader_api::BootInfo;
 use bootloader_api::info::{FrameBuffer, Optional};
 use x86_64::instructions::interrupts::without_interrupts;
-use x86_64::registers::control::Cr3;
-use x86_64::structures::paging::Translate;
 use x86_64::{VirtAddr};
+use crate::allocator::init_heap;
 use crate::memory::BootInfoFrameAllocator;
-use crate::{gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, println, memory};
+use crate::{gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, memory};
 
 fn init() {
     setup_gdt();
@@ -34,7 +34,7 @@ fn init_framebuffer_writer(framebuffer: FrameBuffer) {
 }
 
 pub fn main(boot_info: &'static mut BootInfo) -> ! {
-    // So apparently we gotta execute heist on this bitch and steal it from boot_info
+    // So apparently we gotta execute a heist on this bitch and steal it from boot_info
     let framebuffer = core::mem::replace(&mut boot_info.framebuffer, Optional::None).into_option();
 
     // If it exists we initialize a writer for it
@@ -50,28 +50,24 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
 
     let _phys_mem_offset = VirtAddr::new(physical_memory_offset);
 
-    let mem_mapper = unsafe { memory::init(VirtAddr::new(physical_memory_offset)) };
+    let mut mem_mapper = unsafe { memory::init(VirtAddr::new(physical_memory_offset)) };
+    
+    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) }; 
 
-
-    let addresses = [
-        0x80001008,
-        physical_memory_offset,
-    ];
-
-    for &address in &addresses {
-        let virt = VirtAddr::new(address);
-        let phys = mem_mapper.translate_addr(virt);
-        cprintln!(WriterColor::White, "{:?} -> {:?}", virt, phys);
-    }
+    init_heap(&mut mem_mapper, &mut frame_allocator).expect("Failed to initialize heap");
 
     cprint!(WriterColor::Yellow, "\nPhosphor");
     cprintln!(WriterColor::White, "OS");
 
-    let (l4_page_table, _flags) = Cr3::read();
+    let mut nums: Vec<usize> = Vec::new();
+    
+    for i in 0..4096 {
+        nums.push(i);
+    }
 
-    println!("L4 Page Table at: {:?}", l4_page_table.start_address());
+    cprintln!(WriterColor::Yellow, "Nums: {:?}", nums.len());
 
-    let _frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) }; 
+    cprintln!(WriterColor::BrightGreen, "Entering halt loop");
 
     halt_loop()
 }

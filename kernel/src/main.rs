@@ -4,6 +4,8 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 
+extern crate alloc;
+
 use core::fmt::Write;
 use core::panic::PanicInfo;
 use bootloader_api::{entry_point, BootloaderConfig};
@@ -20,6 +22,7 @@ mod kernel;
 mod console;
 mod keyboard;
 mod memory;
+mod allocator;
 
 use crate::console::Console;
 use crate::writer::*;
