@@ -4,7 +4,7 @@ use bootloader_api::info::{FrameBufferInfo, PixelFormat};
 use noto_sans_mono_bitmap::RasterizedChar;
 use x86_64::instructions::port::Port;
 use crate::{ writer::noto_sans_mono_spacing::{BACKUP_CHAR, FONT_WEIGHT, RASTER_HEIGHT}};
-use core::{fmt, ptr::{self}};
+use core::{fmt::{self, Write}, ptr::{self}};
 
 
 pub trait Writer: fmt::Write {
@@ -43,32 +43,9 @@ impl Writer for SerialWriter {
         }
     }
     fn set_color(&mut self, color: WriterColor) {
-        let color_code = match color {
-            WriterColor::Black => b"30",
-            WriterColor::Red => b"31",
-            WriterColor::Green => b"32",
-            WriterColor::Yellow => b"33",
-            WriterColor::Blue => b"34",
-            WriterColor::Magenta => b"35",
-            WriterColor::Cyan => b"36",
-            WriterColor::Gray => b"90",
-            WriterColor::BrightRed => b"91",
-            WriterColor::BrightGreen => b"92",
-            WriterColor::BrightBlue => b"94",
-            WriterColor::BrightMagenta => b"95",
-            WriterColor::BrightCyan => b"96",
-            WriterColor::White => b"97",
-            _ => b"37"
-        };
+        let rgb = color.to_rgb();
 
-        // Write the color code command
-        unsafe {
-            self.port.write(b'\x1B');
-            self.port.write(b'[');
-            self.port.write(color_code[0]);
-            self.port.write(color_code[1]);
-            self.port.write(b'm');
-        }
+        let _ = write!(self, "\x1b[38;2;{};{};{}m", rgb[0], rgb[1], rgb[2]);
     }
     fn print_with_color(&mut self, text: &str, color: WriterColor) {
         self.set_color(color);
@@ -259,26 +236,11 @@ impl Writer for FrameBufferWriter {
         }
     }
     fn set_color(&mut self, color: WriterColor) {
-        let color: [u8; 3] = match color {
-            WriterColor::Red => [128,0,0],
-            WriterColor::Yellow => [128,128,0],
-            WriterColor::Green => [0,128,0],
-            WriterColor::Blue => [0,0,128],
-            WriterColor::Magenta => [188,0,188],
-            WriterColor::Cyan => [0,128,128],
-            WriterColor::White => [255,255,255],
-            WriterColor::Black => [0,0,0],
-            WriterColor::Gray => [128,128,128],
-            WriterColor::Brown => [100, 64, 0],
-            WriterColor::BrightBlue => [0,0,255],
-            WriterColor::BrightCyan => [0,255,255],
-            WriterColor::BrightGreen => [0,255,0],
-            WriterColor::BrightMagenta => [255,0,255],
-            WriterColor::BrightRed => [255,0,0],
-        };
-        self.color_r = color[0];
-        self.color_g = color[1];
-        self.color_b = color[2];
+        let rgb= color.to_rgb();
+
+        self.color_r = rgb[0];
+        self.color_g = rgb[1];
+        self.color_b = rgb[2];
     }
     fn backspace(&mut self) {
         if self.x_pos < noto_sans_mono_spacing::RASTER_WIDTH - self.char_spacing {
@@ -301,24 +263,57 @@ impl fmt::Write for FrameBufferWriter {
 unsafe impl Send for FrameBufferWriter {}
 unsafe impl Sync for FrameBufferWriter {}
 
-#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WriterColor {
-    Gray = 7,
-    Red = 4,
-    Yellow = 0xe,
-    Green = 2,
-    Blue = 1,
-    Magenta = 5,
-    Cyan = 3,
-    Black = 0,
-    Brown = 6,
-    BrightRed = 0xc,
-    BrightGreen = 0xa,
-    BrightBlue = 0x9,
-    BrightMagenta = 0xd,
-    BrightCyan = 0xb,
-    White = 0xf,
+    Black,
+    Red,
+    Brown,
+    Orange,
+    Yellow,
+    Green,
+    Cyan,
+    Blue,
+    Magenta,
+    Purple,
+    Gray,
+    BrightRed,
+    BrightOrange,
+    BrightYellow,
+    BrightGreen,
+    BrightCyan,
+    BrightBlue,
+    BrightMagenta,
+    BrightPurple,
+    White,
+    RGB(u8, u8, u8)
+}
+
+impl WriterColor {
+    pub const fn to_rgb(self) -> [u8; 3] {
+        match self {
+            WriterColor::Black => [0,0,0],
+            WriterColor::Red => [128,0,0],
+            WriterColor::Brown => [100, 64, 0],
+            WriterColor::Orange => [128,64,0],
+            WriterColor::Yellow => [128,128,0],
+            WriterColor::Green => [0,128,0],
+            WriterColor::Cyan => [0,128,128],
+            WriterColor::Blue => [0,0,128],
+            WriterColor::Magenta => [188,0,188],
+            WriterColor::Purple => [128,0,128],
+            WriterColor::Gray => [128,128,128],
+            WriterColor::White => [255,255,255],
+            WriterColor::BrightRed => [255,0,0],
+            WriterColor::BrightOrange => [255,128,0],
+            WriterColor::BrightYellow => [255,255,0],
+            WriterColor::BrightGreen => [0,255,0],
+            WriterColor::BrightCyan => [0,255,255],
+            WriterColor::BrightBlue => [0,0,255],
+            WriterColor::BrightMagenta => [255,0,255],
+            WriterColor::BrightPurple => [180,0,255],
+            WriterColor::RGB(r, g, b) => [r, g, b],
+        }
+    }
 }
 
 pub struct GlobalWriter {

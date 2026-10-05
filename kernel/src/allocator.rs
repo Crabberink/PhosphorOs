@@ -43,9 +43,10 @@ pub fn init_heap(
     Ok(())
 }
 
-pub struct Dummy;
+#[allow(unused)]
+pub struct FutureAllocator;
 
-unsafe impl GlobalAlloc for Dummy {
+unsafe impl GlobalAlloc for FutureAllocator {
     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
         null_mut()
     }

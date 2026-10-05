@@ -56,7 +56,7 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
 
     init_heap(&mut mem_mapper, &mut frame_allocator).expect("Failed to initialize heap");
 
-    cprint!(WriterColor::Yellow, "\nPhosphor");
+    cprint!(WriterColor::BrightYellow, "\nPhosphor");
     cprintln!(WriterColor::White, "OS");
 
     let mut nums: Vec<usize> = Vec::new();
@@ -65,7 +65,7 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
         nums.push(i);
     }
 
-    cprintln!(WriterColor::Yellow, "Nums: {:?}", nums.len());
+    cprintln!(WriterColor::BrightYellow, "Nums: {:?}", nums.len());
 
     cprintln!(WriterColor::BrightGreen, "Entering halt loop");
 
