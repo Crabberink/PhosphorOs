@@ -1,12 +1,14 @@
 use core::task::{Context, Poll, Waker};
 
 use alloc::{collections::BTreeMap, sync::Arc, task::Wake};
+use conquer_once::{spin::OnceCell};
 use crossbeam::queue::ArrayQueue;
 use x86_64::instructions::interrupts::{self, enable_and_hlt};
 
 use crate::task::{Task, TaskId};
 
 const MAX_NUM_TASKS: usize = 100;
+const SPAWN_BUFFER_LENGTH: usize = 50;
 
 struct TaskWaker {
     task_id: TaskId,
@@ -37,8 +39,20 @@ pub struct Executor {
     waker_cache: BTreeMap<TaskId, Waker>,
 }
 
+static INBOX: OnceCell<ArrayQueue<Task>> = OnceCell::uninit();
+
+pub fn spawn(f: impl Future<Output = ()> + Send + 'static) {
+    let inbox = INBOX.get().expect("Inbox not initialized");
+
+    if inbox.push(Task::new(f)).is_err() {
+        panic!("spawn inbox full!")
+    }
+}
+
 impl Executor {
     pub fn new() -> Self {
+        INBOX.init_once(|| ArrayQueue::new(SPAWN_BUFFER_LENGTH) );
+
         Executor {
             tasks: BTreeMap::new(),
             task_queue: Arc::new(ArrayQueue::new(MAX_NUM_TASKS)),
@@ -63,7 +77,17 @@ impl Executor {
         }
     }
 
+    fn drain_inbox(&mut self) {
+        let inbox = INBOX.get().expect("executor not initialized");
+
+        while let Some(task) = inbox.pop() {
+            self.spawn(task);
+        }
+    }
+
     fn run_ready_tasks(&mut self) {
+        self.drain_inbox();
+
         while let Some(task_id) = self.task_queue.pop() {
             let task = match self.tasks.get_mut( &task_id) {
                 Some(task) => task,
@@ -88,7 +112,7 @@ impl Executor {
 
     fn sleep_if_idle(&self) {
         interrupts::disable();
-        if self.task_queue.is_empty() {
+        if self.task_queue.is_empty() && INBOX.get().expect("executor not initialized").is_empty() {
             enable_and_hlt();
         } else {
             interrupts::enable();

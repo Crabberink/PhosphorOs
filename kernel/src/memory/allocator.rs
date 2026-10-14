@@ -1,11 +1,9 @@
-use alloc::alloc::*;
-use linked_list_allocator::LockedHeap;
 use x86_64::VirtAddr;
 use x86_64::structures::paging::mapper::MapToError;
 use x86_64::structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB};
-use core::{panic, ptr::*};
 use core::prelude::rust_2024::*;
 
+use crate::lock::{IrqGuard, IrqMutex};
 use crate::memory::allocator::linked_list::LinkedListAllocator;
 
 pub mod linked_list;
@@ -48,17 +46,17 @@ pub fn init_heap(
 }
 
 pub struct Locked<A> {
-    inner: spin::Mutex<A>,
+    inner: IrqMutex<A>,
 }
 
 impl<A> Locked<A> {
     pub const fn new(inner: A) -> Self {
         Locked {
-            inner: spin::Mutex::new(inner)
+            inner: IrqMutex::new(inner)
         }
     }
 
-    pub fn lock(&self) -> spin::MutexGuard<A> {
+    pub fn lock(&self) -> IrqGuard<'_, A> {
         self.inner.lock()
     }
 }

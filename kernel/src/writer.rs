@@ -3,9 +3,8 @@
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
 use lazy_static::lazy_static;
 use noto_sans_mono_bitmap::RasterizedChar;
-use spin::Mutex;
 use x86_64::instructions::port::Port;
-use crate::{COM1, writer::noto_sans_mono_spacing::{BACKUP_CHAR, FONT_WEIGHT, RASTER_HEIGHT}};
+use crate::{COM1, lock::IrqMutex, writer::noto_sans_mono_spacing::{BACKUP_CHAR, FONT_WEIGHT, RASTER_HEIGHT}};
 use core::{fmt::{self, Write}, ptr::{self}};
 use x86_64::instructions::interrupts::without_interrupts;
 
@@ -60,9 +59,9 @@ pub fn _print(args: fmt::Arguments) {
 }
 
 lazy_static! {
-    pub static ref WRITER: Mutex<GlobalWriter> = {
+    pub static ref WRITER: IrqMutex<GlobalWriter> = {
         let port: Port<u8> = Port::new(COM1);
-        Mutex::new(GlobalWriter::new(
+        IrqMutex::new(GlobalWriter::new(
             SerialWriter::new(port),
             FrameBufferWriter::new_empty(),
         ))

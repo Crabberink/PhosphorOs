@@ -5,7 +5,7 @@ use crossbeam::queue::{ArrayQueue};
 use futures::{Stream, StreamExt, task::AtomicWaker};
 use pc_keyboard::*;
 
-use crate::{WRITER, cprintln, writer::WriterColor};
+use crate::{WRITER, cprintln, task::executor, writer::WriterColor};
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
@@ -84,7 +84,7 @@ pub async fn process_keypresses() {
 			DecodedKey::Unicode(character) => {
 				match character {
 					'\n' => {
-						
+						executor::spawn(print_fart());
 					},
 					char => {
 						console.print_char(char);
@@ -100,4 +100,14 @@ pub async fn process_keypresses() {
 			},
 		}
 	}
+}
+
+async fn print_fart() {
+	let fart = async_fart().await;
+
+	cprintln!(WriterColor::Green, "{fart}");
+}
+
+async fn async_fart() -> &'static str {
+	"fart"
 }

@@ -1,6 +1,7 @@
 use core::{pin::Pin, sync::atomic::{AtomicU64, Ordering}, task::{Context, Poll}};
 
-use alloc::boxed::Box;
+use alloc::{boxed::Box, sync::Arc};
+use crossbeam::queue::ArrayQueue;
 
 pub mod executor;
 
@@ -16,11 +17,11 @@ impl TaskId {
 
 pub struct Task {
     id: TaskId,
-    future: Pin<Box<dyn Future<Output = ()>>>,
+    future: Pin<Box<dyn Future<Output = ()> + Send>>,
 }
 
 impl Task {
-    pub fn new(future: impl Future<Output = ()> + 'static) -> Self {
+    pub fn new(future: impl Future<Output = ()> + Send + 'static) -> Self {
         Task {
             id: TaskId::new(),
             future: Box::pin(future),

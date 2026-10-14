@@ -17,8 +17,8 @@ mod writer;
 mod interrupts;
 mod gdt;
 mod kernel;
-mod console;
 mod keyboard;
+mod lock;
 mod memory;
 mod task;
 
