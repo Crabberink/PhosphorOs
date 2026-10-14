@@ -7,7 +7,7 @@ use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
-use crate::keyboard::key_event_handler;
+use crate::keyboard::{add_scancode};
 use crate::writer::WriterColor;
 use crate::{CONSOLE, cprintln, halt_loop};
 use crate::lazy_static;
@@ -121,7 +121,8 @@ extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {
 
     let scancode = unsafe { port.read() }; // Read the scancode from the keyboard port
 
-    key_event_handler(scancode);
+    // key_event_handler(scancode);
+    add_scancode(scancode);
 
     unsafe {
         let mut pics = PICS.lock();

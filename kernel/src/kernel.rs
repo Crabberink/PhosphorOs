@@ -1,13 +1,13 @@
-use alloc::boxed::Box;
-use alloc::vec::Vec;
 use bootloader_api::BootInfo;
 use bootloader_api::info::{FrameBuffer, Optional};
 use x86_64::instructions::interrupts::without_interrupts;
-use x86_64::{VirtAddr};
+use x86_64::{VirtAddr, instructions};
+use crate::keyboard::process_keypresses;
 use crate::memory::allocator::init_heap;
 use crate::memory::BootInfoFrameAllocator;
-use crate::println;
-use crate::{gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, memory};
+use crate::task::Task;
+use crate::task::executor::Executor;
+use crate::{gdt::setup_gdt, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, memory};
 
 fn init() {
     setup_gdt();
@@ -50,8 +50,6 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
         panic!("Bootloader did not map physical memory!");
     };
 
-    let _phys_mem_offset = VirtAddr::new(physical_memory_offset);
-
     let mut mem_mapper = unsafe { memory::init(VirtAddr::new(physical_memory_offset)) };
     
     let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) }; 
@@ -60,22 +58,22 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
 
     cprint!(WriterColor::BrightYellow, "\nPhosphor");
     cprintln!(WriterColor::White, "OS");
-    
-    let mut num = 0;
 
-    for i in 0..320000 {
-        let x = Box::new(i);
-        if *x != i {
-            cprintln!(WriterColor::BrightRed,"This thing is fucked");
-        }
-        num+=1;
-    }
+    let mut executor = Executor::new();
+    executor.spawn(Task::new(process_keypresses()));
+    executor.spawn(Task::new(short_example_task()));
 
-    println!("Ran {num} times");
+    executor.run();
+}
 
-    cprintln!(WriterColor::BrightGreen, "Entering halt loop");
+async fn short_example_task() {
+    let num = short_async_number().await;
 
-    halt_loop()
+    cprintln!(WriterColor::BrightOrange,"async num {num}");
+}
+
+async fn short_async_number() -> u32 {
+    69
 }
 
 

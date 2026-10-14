@@ -1,20 +1,87 @@
-use pc_keyboard::*;
-use spin::Mutex;
+use core::task::Poll;
 
-use crate::{CONSOLE, Console};
+use conquer_once::spin::OnceCell;
+use crossbeam::queue::{ArrayQueue};
+use futures::{Stream, StreamExt, task::AtomicWaker};
+use pc_keyboard::*;
+use spin::{Mutex};
+
+use crate::{CONSOLE, Console, cprintln, writer::WriterColor};
 
 static KEYBOARD: Mutex<PS2Keyboard<layouts::Us104Key, ScancodeSet1>> = Mutex::new(
 	PS2Keyboard::new(ScancodeSet1::new(), layouts::Us104Key, HandleControl::Ignore)
 );
 
+static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
+static WAKER: AtomicWaker = AtomicWaker::new();
+
 const UNICODE_BACKSPACE: char = '\u{8}';
 
-pub fn key_event_handler(scancode: u8) {
-	let mut keyboard = KEYBOARD.lock();
+pub struct ScancodeStream {
+	_private: (),
+}
 
-	let mut console = CONSOLE.lock();
+impl ScancodeStream {
+	pub fn new() -> Self {
+		SCANCODE_QUEUE.try_init_once(|| ArrayQueue::new(100))
+			.expect("Scancode stream should only be called once");
+		ScancodeStream { _private: () }
+	}
+}
 
-	if let Ok(Some(key_event)) = keyboard.add_byte(scancode) && let Some(key) = keyboard.process_keyevent(key_event) {
+impl Stream for ScancodeStream {
+	type Item = u8;
+
+	fn poll_next(self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> Poll<Option<Self::Item>> {
+		let queue = SCANCODE_QUEUE.try_get().expect("not initialized");
+		
+		if let Some(scancode) = queue.pop() {
+			return Poll::Ready(Some(scancode));
+		}
+
+		WAKER.register(&cx.waker());
+		match queue.pop() {
+			Some(scancode) => {
+				WAKER.take();
+				Poll::Ready(Some(scancode))
+			},
+			None => Poll::Pending,
+		}
+	}
+}
+
+pub(crate) fn add_scancode(scancode: u8) {
+	let Ok(queue) = SCANCODE_QUEUE.try_get() else {
+		cprintln!(WriterColor::Yellow, "WARNING: Scancode queue uninitialized");
+		return;
+	};
+
+	if queue.push(scancode).is_err() {
+		cprintln!(WriterColor::Yellow, "WARNING: Scancode queue full; Dropping keyboard input");
+		return;
+	}
+
+	WAKER.wake();
+}
+
+pub async fn process_keypresses() {
+	let mut scancodes = ScancodeStream::new();
+	let mut keyboard = PS2Keyboard::new(
+		ScancodeSet1::new(),
+		layouts::Us104Key,
+		HandleControl::Ignore
+	);
+
+	while let Some(scancode) = scancodes.next().await {
+		let Ok(Some(key_event)) = keyboard.add_byte(scancode) else {
+			continue;
+		};
+		let Some(key) = keyboard.process_keyevent(key_event) else {
+			continue;
+		};
+
+		let mut console = CONSOLE.lock();
+
 		match key {
 			DecodedKey::Unicode(UNICODE_BACKSPACE) => {
 				console.backspace();
