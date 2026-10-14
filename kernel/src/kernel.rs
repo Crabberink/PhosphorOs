@@ -1,13 +1,13 @@
 use bootloader_api::BootInfo;
 use bootloader_api::info::{FrameBuffer, Optional};
 use x86_64::instructions::interrupts::without_interrupts;
-use x86_64::{VirtAddr, instructions};
+use x86_64::{VirtAddr};
 use crate::keyboard::process_keypresses;
 use crate::memory::allocator::init_heap;
 use crate::memory::BootInfoFrameAllocator;
 use crate::task::Task;
 use crate::task::executor::Executor;
-use crate::{gdt::setup_gdt, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, memory};
+use crate::{gdt::setup_gdt, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, WRITER, cprint, cprintln, memory};
 
 fn init() {
     setup_gdt();
@@ -27,7 +27,7 @@ fn init_framebuffer_writer(framebuffer: FrameBuffer) {
         let info = framebuffer.info();
         let buffer = framebuffer.into_buffer();
         
-        let mut console = CONSOLE.lock();
+        let mut console = WRITER.lock();
         
         let framebuffer_writer = FrameBufferWriter::new(buffer, info);
         

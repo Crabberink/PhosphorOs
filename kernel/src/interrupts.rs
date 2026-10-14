@@ -9,7 +9,7 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, Pag
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
 use crate::keyboard::{add_scancode};
 use crate::writer::WriterColor;
-use crate::{CONSOLE, cprintln, halt_loop};
+use crate::{COM1, WRITER, cprintln, halt_loop};
 use crate::lazy_static;
 
 lazy_static! {
@@ -43,7 +43,7 @@ pub fn setup_idt() {
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
-    let mut console = CONSOLE.lock();
+    let mut console = WRITER.lock();
     console.set_color(WriterColor::BrightBlue);
     let _ = writeln!(console, "\nBREAKPOINT:\n{:#?}",stack_frame);
 }
@@ -52,10 +52,10 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
     // Prevent a deadlock during the double fault
     // No further threads will be able to use the console anyway since the machine will shut down
     unsafe {
-        CONSOLE.force_unlock();
+        WRITER.force_unlock();
     }
 
-    let mut console = CONSOLE.lock();
+    let mut console = WRITER.lock();
     console.set_color(WriterColor::Yellow);
     let _ = write!(console, "\nPhosphorOS has experienced a ");
     console.set_color(WriterColor::Red);
@@ -68,7 +68,7 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
 }
 
 extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, err_code: PageFaultErrorCode) {
-    let mut console = CONSOLE.lock();
+    let mut console = WRITER.lock();
 
     console.set_color(WriterColor::Red);
     let _ = writeln!(console, "EXCEPTION: PAGE FAULT");
@@ -104,7 +104,6 @@ pub enum HardwareInterruptIndex {
 }
 
 const KEYBOARD_PORT: u16 = 0x60;
-const COM1: u16 = 0x3F8;
 
 extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     // let mut console = CONSOLE.lock();

@@ -11,8 +11,6 @@ use core::panic::PanicInfo;
 use bootloader_api::{entry_point, BootloaderConfig};
 use bootloader_api::config::Mapping;
 use lazy_static::lazy_static;
-use spin::Mutex;
-use x86_64::instructions::port::Port;
 
 mod serial;
 mod writer;
@@ -24,33 +22,22 @@ mod keyboard;
 mod memory;
 mod task;
 
-use crate::console::Console;
 use crate::writer::*;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     unsafe {
-        CONSOLE.force_unlock();
+        WRITER.force_unlock();
     }
 
-    let mut console = CONSOLE.lock();
+    let mut console = WRITER.lock();
     console.set_color(WriterColor::BrightRed);
     let _ = write!(console, "\n{}", _info);
     
     halt_loop();
 }
 
-const SERIAL_OUT: u16 = 0x3F8;
-
-lazy_static! {
-    pub static ref CONSOLE: Mutex<Console> = {
-        let port: Port<u8> = Port::new(SERIAL_OUT);
-        Mutex::new(Console::new(
-            SerialWriter::new(port),
-            FrameBufferWriter::new_empty(),
-        ))
-    };
-}
+const COM1: u16 = 0x3F8;
 
 pub static BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();

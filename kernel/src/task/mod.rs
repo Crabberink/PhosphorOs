@@ -2,7 +2,6 @@ use core::{pin::Pin, sync::atomic::{AtomicU64, Ordering}, task::{Context, Poll}}
 
 use alloc::boxed::Box;
 
-pub mod simple_executor;
 pub mod executor;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

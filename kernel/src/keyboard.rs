@@ -4,13 +4,8 @@ use conquer_once::spin::OnceCell;
 use crossbeam::queue::{ArrayQueue};
 use futures::{Stream, StreamExt, task::AtomicWaker};
 use pc_keyboard::*;
-use spin::{Mutex};
 
-use crate::{CONSOLE, Console, cprintln, writer::WriterColor};
-
-static KEYBOARD: Mutex<PS2Keyboard<layouts::Us104Key, ScancodeSet1>> = Mutex::new(
-	PS2Keyboard::new(ScancodeSet1::new(), layouts::Us104Key, HandleControl::Ignore)
-);
+use crate::{WRITER, cprintln, writer::WriterColor};
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
@@ -80,7 +75,7 @@ pub async fn process_keypresses() {
 			continue;
 		};
 
-		let mut console = CONSOLE.lock();
+		let mut console = WRITER.lock();
 
 		match key {
 			DecodedKey::Unicode(UNICODE_BACKSPACE) => {
@@ -89,7 +84,7 @@ pub async fn process_keypresses() {
 			DecodedKey::Unicode(character) => {
 				match character {
 					'\n' => {
-						enter_test(&mut console);
+						
 					},
 					char => {
 						console.print_char(char);
@@ -99,15 +94,10 @@ pub async fn process_keypresses() {
 			// Keys that aren't unicode characters, like F1, Enter, etc. can be handled here
 			DecodedKey::RawKey(key) => {
 				match key {
-					KeyCode::Return => enter_test(&mut console),
+					KeyCode::Return => {},
 					_ => {}
 				}
 			},
 		}
 	}
-}
-
-fn enter_test(console: &mut Console) {
-	console.print_char('\n');
-	console.print_str("test\n");
 }

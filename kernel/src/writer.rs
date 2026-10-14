@@ -1,11 +1,73 @@
 #![allow(dead_code)]
 
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
+use lazy_static::lazy_static;
 use noto_sans_mono_bitmap::RasterizedChar;
+use spin::Mutex;
 use x86_64::instructions::port::Port;
-use crate::{ writer::noto_sans_mono_spacing::{BACKUP_CHAR, FONT_WEIGHT, RASTER_HEIGHT}};
+use crate::{COM1, writer::noto_sans_mono_spacing::{BACKUP_CHAR, FONT_WEIGHT, RASTER_HEIGHT}};
 use core::{fmt::{self, Write}, ptr::{self}};
+use x86_64::instructions::interrupts::without_interrupts;
 
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::console::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! console_color {
+    ($color:expr) => (
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            $crate::CONSOLE.lock().set_color($color);
+        })
+    );
+}
+
+#[macro_export]
+macro_rules! cprint {
+    ($color:expr, $($arg:tt)*) => (
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            use core::fmt::Write;
+            let mut console = $crate::writer::WRITER.lock();
+            console.set_color($color);
+            let _ = write!(console, $($arg)*);
+        });
+    );
+}
+
+#[macro_export]
+macro_rules! cprintln {
+    ($color:expr, $($arg:tt)*) => (
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            use core::fmt::Write;
+            let mut console = $crate::writer::WRITER.lock();
+            console.set_color($color);
+            let _ = writeln!(console, $($arg)*);
+        });
+    );
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
+}
+
+lazy_static! {
+    pub static ref WRITER: Mutex<GlobalWriter> = {
+        let port: Port<u8> = Port::new(COM1);
+        Mutex::new(GlobalWriter::new(
+            SerialWriter::new(port),
+            FrameBufferWriter::new_empty(),
+        ))
+    };
+}
 
 pub trait Writer: fmt::Write {
     fn print(&mut self, text: &str);
@@ -20,6 +82,49 @@ pub trait Writer: fmt::Write {
         Ok(())
     }
     fn backspace(&mut self) { }
+}
+
+pub struct GlobalWriter {
+    serial_writer: SerialWriter,
+    framebuffer_writer: FrameBufferWriter,
+    is_initialized: bool,
+}
+
+impl GlobalWriter {
+    pub fn new(serial_writer: SerialWriter, framebuffer_writer: FrameBufferWriter) -> GlobalWriter{
+        GlobalWriter {
+            serial_writer,
+            framebuffer_writer,
+            is_initialized: false,
+        }
+    }
+    pub fn print_char(&mut self, character: char) {
+        let _ = self.serial_writer.write_char(character);
+        let _ = self.framebuffer_writer.write_char(character);
+    }
+    pub fn print_str(&mut self, string: &str) {
+        let _ = self.serial_writer.write_str(string);
+        let _ = self.framebuffer_writer.write_str(string);
+    }
+    pub fn set_color(&mut self, color: WriterColor) {
+        self.serial_writer.set_color(color);
+        self.framebuffer_writer.set_color(color);
+    }
+    pub fn set_framebuffer_writer(&mut self, writer: FrameBufferWriter) {
+        self.framebuffer_writer = writer;
+        self.framebuffer_writer.clear();
+    }
+    pub fn backspace(&mut self) {
+        self.serial_writer.backspace();
+        self.framebuffer_writer.backspace();
+    }
+}
+
+impl fmt::Write for GlobalWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.print_str(s);
+        Ok(())
+    }
 }
 
 pub struct SerialWriter {
@@ -63,6 +168,7 @@ impl Writer for SerialWriter {
         }
     }
 }
+
 impl fmt::Write for SerialWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.print(s);
@@ -314,8 +420,4 @@ impl WriterColor {
             WriterColor::RGB(r, g, b) => [r, g, b],
         }
     }
-}
-
-pub struct GlobalWriter {
-    serial_writer: SerialWriter,
 }
