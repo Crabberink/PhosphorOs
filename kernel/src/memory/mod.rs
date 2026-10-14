@@ -3,6 +3,8 @@ use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
+pub mod allocator;
+
 /// Initialize a new OffsetPageTable
 ///
 /// Unsafe because the caller must guarantee that the complete physical memory is mapped to virtual memory at the passed `phys_mem_offset`.

@@ -6,8 +6,12 @@ use x86_64::structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, S
 use core::{panic, ptr::*};
 use core::prelude::rust_2024::*;
 
+use crate::memory::allocator::linked_list::LinkedListAllocator;
+
+pub mod linked_list;
+
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 pub const HEAP_START: VirtAddr = VirtAddr::new(0x0000_4444_4444_0000);
 pub const HEAP_SIZE: usize = (1024) * 100; // 100 KiB
@@ -37,21 +41,24 @@ pub fn init_heap(
 
     unsafe {
         let mut alloc = ALLOCATOR.lock();
-        alloc.init(HEAP_START.as_mut_ptr(), HEAP_SIZE);
+        alloc.init(HEAP_START.as_u64(), HEAP_SIZE as u64);
     }
     
     Ok(())
 }
 
-#[allow(unused)]
-pub struct FutureAllocator;
+pub struct Locked<A> {
+    inner: spin::Mutex<A>,
+}
 
-unsafe impl GlobalAlloc for FutureAllocator {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        null_mut()
+impl<A> Locked<A> {
+    pub const fn new(inner: A) -> Self {
+        Locked {
+            inner: spin::Mutex::new(inner)
+        }
     }
 
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        panic!("OH GOD OH FUCK")
+    pub fn lock(&self) -> spin::MutexGuard<A> {
+        self.inner.lock()
     }
 }

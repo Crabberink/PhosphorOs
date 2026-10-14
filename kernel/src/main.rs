@@ -22,7 +22,6 @@ mod kernel;
 mod console;
 mod keyboard;
 mod memory;
-mod allocator;
 
 use crate::console::Console;
 use crate::writer::*;

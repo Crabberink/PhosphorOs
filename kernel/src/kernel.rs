@@ -1,10 +1,12 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bootloader_api::BootInfo;
 use bootloader_api::info::{FrameBuffer, Optional};
 use x86_64::instructions::interrupts::without_interrupts;
 use x86_64::{VirtAddr};
-use crate::allocator::init_heap;
+use crate::memory::allocator::init_heap;
 use crate::memory::BootInfoFrameAllocator;
+use crate::println;
 use crate::{gdt::setup_gdt, halt_loop, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, CONSOLE, cprint, cprintln, memory};
 
 fn init() {
@@ -58,14 +60,18 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
 
     cprint!(WriterColor::BrightYellow, "\nPhosphor");
     cprintln!(WriterColor::White, "OS");
-
-    let mut nums: Vec<usize> = Vec::new();
     
-    for i in 0..4096 {
-        nums.push(i);
+    let mut num = 0;
+
+    for i in 0..320000 {
+        let x = Box::new(i);
+        if *x != i {
+            cprintln!(WriterColor::BrightRed,"This thing is fucked");
+        }
+        num+=1;
     }
 
-    cprintln!(WriterColor::BrightYellow, "Nums: {:?}", nums.len());
+    println!("Ran {num} times");
 
     cprintln!(WriterColor::BrightGreen, "Entering halt loop");
 
