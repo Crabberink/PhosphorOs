@@ -32,6 +32,7 @@ lazy_static! {
         // Hardware interrupts
         idt[HardwareInterruptIndex::Timer as u8].set_handler_fn(timer_handler);
         idt[HardwareInterruptIndex::Keyboard as u8].set_handler_fn(keyboard_handler);
+        idt[HardwareInterruptIndex::Serial1 as u8].set_handler_fn(serial1_handler);
 
         idt
     };
@@ -98,10 +99,12 @@ unsafe {
 pub enum HardwareInterruptIndex {
     #[allow(clippy::identity_op)]
     Timer = PIC_1_OFFSET + 0,
-    Keyboard,
+    Keyboard = PIC_1_OFFSET + 1,
+    Serial1 = PIC_1_OFFSET + 4,
 }
 
 const KEYBOARD_PORT: u16 = 0x60;
+const COM1: u16 = 0x3F8;
 
 extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     // let mut console = CONSOLE.lock();
@@ -123,5 +126,17 @@ extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {
     unsafe {
         let mut pics = PICS.lock();
         pics.notify_end_of_interrupt(HardwareInterruptIndex::Keyboard as u8);
+    }
+}
+
+extern "x86-interrupt" fn serial1_handler(_stack_frame: InterruptStackFrame) {
+    let mut port: Port<u8> = Port::new(COM1);
+
+    // fuck if I know twin I aint supporting no serial input
+    let _byte = unsafe { port.read(); };
+
+    unsafe { 
+        let mut pics = PICS.lock();
+        pics.notify_end_of_interrupt(HardwareInterruptIndex::Serial1 as u8);
     }
 }
