@@ -8,6 +8,7 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, Pag
 
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
 use crate::keyboard::{add_scancode};
+use crate::task::threading::scheduler;
 use crate::writer::WriterColor;
 use crate::{COM1, WRITER, cprintln, halt_loop};
 use crate::lazy_static;
@@ -113,6 +114,8 @@ extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
         let mut pics: spin::MutexGuard<'_, ChainedPics> = PICS.lock();
         pics.notify_end_of_interrupt(HardwareInterruptIndex::Timer as u8);
     }
+
+    unsafe { scheduler::schedule(); }
 }
 
 extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {

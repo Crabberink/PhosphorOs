@@ -63,13 +63,12 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
     cprint!(WriterColor::BrightYellow, "\nPhosphor");
     cprintln!(WriterColor::White, "OS");
 
-    scheduler::spawn_thread(|| loop { println!("A"); scheduler::yield_now(); });
-    scheduler::spawn_thread(|| loop { println!("B"); scheduler::yield_now(); });
-    loop { println!("main"); scheduler::yield_now(); }
+    scheduler::spawn_thread(|| loop { println!("A"); });
+    scheduler::spawn_thread(|| loop { println!("B"); });
 
     let mut executor = Executor::new();
     executor.spawn(Task::new(process_keypresses()));
-    executor.spawn(Task::new(test_long_task()));
+    // executor.spawn(Task::new(test_long_task()));
 
     executor.run();
 }
@@ -82,7 +81,7 @@ pub async fn test_long_task() {
 
 async fn test_uncooperative_number() -> f64 { 
     let mut n = 1000.0;
-    for i in 0..500000 {
+    for i in 0..5000 {
         n += i as f64;
         for b in 0..100 {
             n -= b as f64;

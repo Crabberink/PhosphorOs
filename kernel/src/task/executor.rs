@@ -5,7 +5,7 @@ use conquer_once::{spin::OnceCell};
 use crossbeam::queue::ArrayQueue;
 use x86_64::instructions::interrupts::{self, enable_and_hlt};
 
-use crate::task::{Task, TaskId};
+use crate::{cprintln, task::{Task, TaskId, threading::scheduler}, writer::WriterColor};
 
 const MAX_NUM_TASKS: usize = 100;
 const SPAWN_BUFFER_LENGTH: usize = 50;
@@ -112,10 +112,19 @@ impl Executor {
 
     fn sleep_if_idle(&self) {
         interrupts::disable();
-        if self.task_queue.is_empty() && INBOX.get().expect("executor not initialized").is_empty() {
-            enable_and_hlt();
-        } else {
+        let has_work = !self.task_queue.is_empty() || !INBOX.get().expect("executor not initialized").is_empty();
+
+        if has_work {
             interrupts::enable();
+            return;
         }
+        interrupts::enable();
+
+        if scheduler::has_ready_threads() {
+            scheduler::yield_now();
+            return;
+        }
+
+        interrupts::enable_and_hlt();
     }
 }

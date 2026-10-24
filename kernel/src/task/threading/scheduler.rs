@@ -2,6 +2,7 @@ use core::arch::naked_asm;
 
 use alloc::{boxed::Box, collections::VecDeque, vec};
 use conquer_once::spin::OnceCell;
+use x86_64::instructions::interrupts;
 
 use crate::{lock::IrqMutex, task::threading::{THREAD_STACK_SIZE, Thread}};
 
@@ -54,29 +55,44 @@ pub fn spawn_thread(entry: fn()) {
 }
 
 extern "C" fn thread_start() -> ! {
+    interrupts::enable();
     let entry = scheduler().lock().current.entry.expect("Thread has no entry");
     entry();
 
     loop { yield_now(); }
 }
 
-pub fn yield_now() {
+/// Interrupts must be disabled
+pub unsafe fn schedule() {
     let (old_rsp_slot, new_rsp_slot) = {
         let mut s = scheduler().lock();
-
+    
         let Some(next) = s.ready.pop_front() else { 
             return;
         };
-
+    
         let mut prev = core::mem::replace(&mut s.current, next);
         let old_rsp_slot = &mut prev.rsp as *mut usize;
         let new_rsp_slot = s.current.rsp;
         s.ready.push_back(prev);
-
+    
         (old_rsp_slot, new_rsp_slot)
     };
-
+    
     unsafe { switch_context(old_rsp_slot, new_rsp_slot) };
+}
+
+pub fn yield_now() {
+    let enabled = interrupts::are_enabled();
+    interrupts::disable();
+
+    unsafe { schedule(); }
+
+    if enabled { interrupts::enable(); }
+}
+
+pub fn has_ready_threads() -> bool {
+    !scheduler().lock().ready.is_empty()
 }
 
 #[unsafe(naked)]
