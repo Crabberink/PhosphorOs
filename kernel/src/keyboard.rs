@@ -5,7 +5,7 @@ use crossbeam::queue::{ArrayQueue};
 use futures::{Stream, StreamExt, task::AtomicWaker};
 use pc_keyboard::*;
 
-use crate::{WRITER, cprintln, task::executor, writer::WriterColor};
+use crate::{WRITER, cprintln, kernel::test_long_task, task::{Task, executor}, writer::WriterColor};
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
@@ -106,6 +106,8 @@ async fn print_fart() {
 	let fart = async_fart().await;
 
 	cprintln!(WriterColor::Green, "{fart}");
+
+	executor::spawn(test_long_task());
 }
 
 async fn async_fart() -> &'static str {

@@ -4,6 +4,7 @@ use alloc::{boxed::Box, sync::Arc};
 use crossbeam::queue::ArrayQueue;
 
 pub mod executor;
+pub mod threading;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskId(u64);

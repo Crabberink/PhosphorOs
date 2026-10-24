@@ -15,7 +15,7 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::console::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::writer::_print(format_args!($($arg)*)));
 }
 
 #[macro_export]

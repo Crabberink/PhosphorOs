@@ -5,7 +5,9 @@ use x86_64::{VirtAddr};
 use crate::keyboard::process_keypresses;
 use crate::memory::allocator::init_heap;
 use crate::memory::BootInfoFrameAllocator;
-use crate::task::Task;
+use crate::println;
+use crate::task::threading::scheduler;
+use crate::task::{Task, threading};
 use crate::task::executor::Executor;
 use crate::{gdt::setup_gdt, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, WRITER, cprint, cprintln, memory};
 
@@ -56,26 +58,39 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
 
     init_heap(&mut mem_mapper, &mut frame_allocator).expect("Failed to initialize heap");
 
+    threading::scheduler::init();
+
     cprint!(WriterColor::BrightYellow, "\nPhosphor");
     cprintln!(WriterColor::White, "OS");
 
+    scheduler::spawn_thread(|| loop { println!("A"); scheduler::yield_now(); });
+    scheduler::spawn_thread(|| loop { println!("B"); scheduler::yield_now(); });
+    loop { println!("main"); scheduler::yield_now(); }
+
     let mut executor = Executor::new();
     executor.spawn(Task::new(process_keypresses()));
-    executor.spawn(Task::new(short_example_task()));
+    executor.spawn(Task::new(test_long_task()));
 
     executor.run();
 }
 
-async fn short_example_task() {
-    let num = short_async_number().await;
+pub async fn test_long_task() {
+    let val = test_uncooperative_number().await;
 
-    cprintln!(WriterColor::BrightOrange,"async num {num}");
+    cprintln!(WriterColor::BrightOrange, "Num {}", val);
 }
 
-async fn short_async_number() -> u32 {
-    69
-}
+async fn test_uncooperative_number() -> f64 { 
+    let mut n = 1000.0;
+    for i in 0..500000 {
+        n += i as f64;
+        for b in 0..100 {
+            n -= b as f64;
+        }
+    }
 
+    n
+}
 
 #[allow(unconditional_recursion)]
 #[allow(dead_code)]

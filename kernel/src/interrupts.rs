@@ -133,7 +133,10 @@ extern "x86-interrupt" fn serial1_handler(_stack_frame: InterruptStackFrame) {
     let mut port: Port<u8> = Port::new(COM1);
 
     // fuck if I know twin I aint supporting no serial input
-    let _byte = unsafe { port.read(); };
+    let byte = unsafe { port.read() };
+    
+
+    add_scancode(byte);
 
     unsafe { 
         let mut pics = PICS.lock();
