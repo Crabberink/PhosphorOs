@@ -5,7 +5,7 @@ use crossbeam::queue::{ArrayQueue};
 use futures::{Stream, StreamExt, task::AtomicWaker};
 use pc_keyboard::*;
 
-use crate::{WRITER, cprintln, kernel::test_long_task, task::{Task, executor}, writer::WriterColor};
+use crate::{WRITER, cprintln, kernel::test_long_task, task::{executor}, writer::WriterColor};
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();

@@ -1,6 +1,7 @@
 use alloc::{boxed::Box};
 
 pub mod scheduler;
+mod sleep;
 
 pub struct Thread {
     rsp: usize,

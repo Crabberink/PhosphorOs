@@ -2,12 +2,13 @@ use bootloader_api::BootInfo;
 use bootloader_api::info::{FrameBuffer, Optional};
 use x86_64::instructions::interrupts::without_interrupts;
 use x86_64::{VirtAddr};
+use crate::interrupts::timer::{self, setup_pit};
 use crate::keyboard::process_keypresses;
 use crate::memory::allocator::init_heap;
 use crate::memory::BootInfoFrameAllocator;
-use crate::println;
-use crate::task::threading::scheduler;
-use crate::task::{Task, threading};
+use crate::threads::scheduler::{self, sleep};
+use crate::{threads};
+use crate::task::{Task};
 use crate::task::executor::Executor;
 use crate::{gdt::setup_gdt, interrupts::{setup_idt, PICS}, writer::{FrameBufferWriter, WriterColor}, WRITER, cprint, cprintln, memory};
 
@@ -15,12 +16,16 @@ fn init() {
     setup_gdt();
     setup_idt();
     
+    cprintln!(WriterColor::White, "Initializing pics...");
     unsafe {
         let mut pics = PICS.lock();
         pics.initialize();
-
-        pics.write_masks(0, 0); // Unmask all interrupts
     }
+    
+    cprintln!(WriterColor::White, "Setting up pit...");
+    setup_pit();
+    unsafe { timer::set_pit_freq(5000) }
+
     x86_64::instructions::interrupts::enable();
 }
 
@@ -56,19 +61,23 @@ pub fn main(boot_info: &'static mut BootInfo) -> ! {
     
     let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) }; 
 
+    cprintln!(WriterColor::White, "Initializing heap...");
     init_heap(&mut mem_mapper, &mut frame_allocator).expect("Failed to initialize heap");
 
-    threading::scheduler::init();
+    cprintln!(WriterColor::White, "Initializing thread scheduler...");
+    unsafe { threads::scheduler::init(); }
+
+    // Unmask all interrupts now that everything is set up
+    unsafe { PICS.lock().write_masks(0, 0); }
 
     cprint!(WriterColor::BrightYellow, "\nPhosphor");
     cprintln!(WriterColor::White, "OS");
 
-    scheduler::spawn_thread(|| loop { println!("A"); });
-    scheduler::spawn_thread(|| loop { println!("B"); });
-
     let mut executor = Executor::new();
     executor.spawn(Task::new(process_keypresses()));
-    // executor.spawn(Task::new(test_long_task()));
+
+    scheduler::spawn_thread(|| { loop { cprintln!(WriterColor::White, "A"); sleep(1000); }});
+    scheduler::spawn_thread(|| { loop { cprintln!(WriterColor::White, "B"); sleep(1000); }});
 
     executor.run();
 }

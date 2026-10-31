@@ -1,10 +1,8 @@
 use core::{pin::Pin, sync::atomic::{AtomicU64, Ordering}, task::{Context, Poll}};
 
-use alloc::{boxed::Box, sync::Arc};
-use crossbeam::queue::ArrayQueue;
+use alloc::{boxed::Box};
 
 pub mod executor;
-pub mod threading;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskId(u64);

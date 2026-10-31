@@ -1,7 +1,9 @@
-use crate::lazy_static;
+use crate::{cprintln, lazy_static, writer::WriterColor};
 use x86_64::{instructions::tables::load_tss, registers::segmentation::{Segment, CS, DS, SS}, structures::{gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector}, tss::TaskStateSegment}, VirtAddr};
 
 pub fn setup_gdt() {
+    cprintln!(WriterColor::White, "Loading gdt...");
+    
     GDT_SELECTORS.gdt.load();
 
     unsafe {

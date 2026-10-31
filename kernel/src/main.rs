@@ -20,6 +20,7 @@ mod kernel;
 mod keyboard;
 mod lock;
 mod memory;
+mod threads;
 mod task;
 
 use crate::writer::*;

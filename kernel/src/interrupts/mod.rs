@@ -1,18 +1,21 @@
 use core::fmt::Write;
 
 use pic8259::ChainedPics;
-use spin::Mutex;
 use x86_64::instructions::port::Port;
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
 use crate::keyboard::{add_scancode};
-use crate::task::threading::scheduler;
+use crate::lock::IrqMutex;
+use crate::threads::scheduler::{self, schedule};
 use crate::writer::WriterColor;
-use crate::{COM1, WRITER, cprintln, halt_loop};
+use crate::{COM1, WRITER, cprintln, halt_loop, threads};
 use crate::lazy_static;
 
+pub mod timer;
+
+// Defined statically in the program
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
@@ -40,6 +43,8 @@ lazy_static! {
 }
 
 pub fn setup_idt() {
+    cprintln!(WriterColor::White, "Loading idt...");
+
     IDT.load();
 }
 
@@ -90,7 +95,7 @@ extern  "x86-interrupt" fn stack_segment_fault_handler(stack_frame: InterruptSta
 pub const PIC_1_OFFSET: u8 = 32;                // All offsets need to be multiples of 8 because
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;  // Lower 3 bits are reserved and not counted
 
-pub static PICS: spin::Mutex<ChainedPics> = Mutex::new(
+pub static PICS: IrqMutex<ChainedPics> = IrqMutex::new(
 unsafe {
     ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET)
 });
@@ -109,13 +114,13 @@ const KEYBOARD_PORT: u16 = 0x60;
 extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     // let mut console = CONSOLE.lock();
     // console.print_str(".");
-
+    
     unsafe {
-        let mut pics: spin::MutexGuard<'_, ChainedPics> = PICS.lock();
+        let mut pics = PICS.lock();
         pics.notify_end_of_interrupt(HardwareInterruptIndex::Timer as u8);
     }
-
-    unsafe { scheduler::schedule(); }
+    
+    unsafe { scheduler::tick(); }
 }
 
 extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {

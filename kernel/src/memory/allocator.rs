@@ -12,7 +12,7 @@ pub mod linked_list;
 static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 pub const HEAP_START: VirtAddr = VirtAddr::new(0x0000_4444_4444_0000);
-pub const HEAP_SIZE: usize = (1024) * 100; // 100 KiB
+pub const HEAP_SIZE: usize = (1024) * 300; // 100 KiB
 
 pub fn init_heap(
     mem_mapper: &mut impl Mapper<Size4KiB>,

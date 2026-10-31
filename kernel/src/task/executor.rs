@@ -3,9 +3,9 @@ use core::task::{Context, Poll, Waker};
 use alloc::{collections::BTreeMap, sync::Arc, task::Wake};
 use conquer_once::{spin::OnceCell};
 use crossbeam::queue::ArrayQueue;
-use x86_64::instructions::interrupts::{self, enable_and_hlt};
+use x86_64::instructions::interrupts::{self};
 
-use crate::{cprintln, task::{Task, TaskId, threading::scheduler}, writer::WriterColor};
+use crate::{task::{Task, TaskId}, threads::scheduler};
 
 const MAX_NUM_TASKS: usize = 100;
 const SPAWN_BUFFER_LENGTH: usize = 50;
