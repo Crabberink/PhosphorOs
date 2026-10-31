@@ -4,7 +4,7 @@ use alloc::{boxed::Box, collections::{BinaryHeap, VecDeque}, vec};
 use conquer_once::spin::OnceCell;
 use x86_64::instructions::interrupts;
 
-use crate::{cprintln, halt_loop, interrupts::timer::{PIT_BASE_HZ, closest_pit_divisor_for, set_pit_divisor, set_pit_freq}, lock::IrqMutex, threads::{THREAD_STACK_SIZE, Thread, sleep::Sleeper}, writer::WriterColor};
+use crate::{cprintln, halt_loop, interrupts::timer::{PIT_BASE_HZ, closest_pit_divisor_for, set_pit_divisor}, lock::IrqMutex, threads::{THREAD_STACK_SIZE, Thread, sleeper::Sleeper}, writer::WriterColor};
 
 struct Scheduler {
     current: Box<Thread>,

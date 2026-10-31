@@ -8,9 +8,9 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, Pag
 use crate::gdt::DOUBLE_FAULT_STACK_INDEX;
 use crate::keyboard::{add_scancode};
 use crate::lock::IrqMutex;
-use crate::threads::scheduler::{self, schedule};
+use crate::threads::scheduler::{self};
 use crate::writer::WriterColor;
-use crate::{COM1, WRITER, cprintln, halt_loop, threads};
+use crate::{COM1, WRITER, cprintln, halt_loop};
 use crate::lazy_static;
 
 pub mod timer;
